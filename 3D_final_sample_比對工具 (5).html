@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Final Sample 工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f5f5;--surface:#ffffff;--surface2:#eeeeee;
+  --border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);
+  --text:#1a1a1a;--text2:#666666;--text3:#aaaaaa;
+  --blue:#333333;--blue-bg:#e8e8e8;--blue-text:#111111;
+  --blue-dark:#222222;--blue-mid:#888888;--blue-pale:#f0f0f0;
+  --slate:#888888;--slate-bg:#eeeeee;--slate-text:#444444;
+  --navy:#1a1a1a;--navy-bg:#e0e0e0;
+}
+body{font-family:'Helvetica Neue',Arial,'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
+header{background:var(--surface);border-bottom:.5px solid var(--border);padding:.85rem 2rem;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30}
+.dot{width:9px;height:9px;background:var(--blue);border-radius:50%;flex-shrink:0}
+header h1{font-size:15px;font-weight:600;letter-spacing:-.02em}
+header h1 span{display:none}
+.hist-badge{margin-left:auto;font-size:12px;background:var(--blue-bg);color:var(--blue-text);border-radius:20px;padding:3px 12px;font-weight:500;white-space:nowrap}
+.tab-bar{background:var(--surface);border-bottom:.5px solid var(--border);display:flex;position:sticky;top:49px;z-index:25;padding:0 2rem}
+.tab-btn{font-size:13px;font-weight:500;padding:.6rem 1.2rem;border:none;background:none;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+main{max-width:960px;margin:0 auto;padding:1.75rem 1.5rem 5rem}
+.tab-content{display:none}.tab-content.active{display:block}
+.slabel{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem}
+.info-bar{border-radius:10px;padding:.65rem 1rem;margin-bottom:1.25rem;font-size:13px;display:flex;align-items:flex-start;gap:8px}
+.info-bar.teal{background:var(--blue-bg);border:.5px solid var(--blue);color:var(--blue-text)}
+.info-bar.blue{background:var(--blue-pale);border:.5px solid var(--blue-mid);color:var(--blue-text)}
+.upload-box{background:var(--surface);border:.5px solid var(--border2);border-radius:12px;padding:1.25rem;cursor:pointer;display:block;margin-bottom:1.25rem;transition:background .15s,border-color .15s}
+.upload-box:hover{background:var(--surface2);border-color:var(--blue)}
+.upload-box.done{border-color:var(--blue)}
+.upload-box input{display:none}
+.upload-inner{display:flex;align-items:center;gap:14px}
+.upload-icon{width:40px;height:40px;flex-shrink:0;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center}
+.upload-icon svg{width:20px;height:20px;stroke:var(--text2)}
+.upload-box.done .upload-icon{background:var(--blue-bg)}
+.upload-box.done .upload-icon svg{stroke:var(--blue)}
+.upload-box.drag-over{border-color:var(--blue);background:var(--blue-bg)}
+.bt-tag.bt-sel-cov{background:var(--blue-bg);color:var(--blue-text);outline:2px solid var(--blue);outline-offset:1px;cursor:pointer}
+.bt-tag.bt-sel-new{background:var(--navy-bg);color:var(--navy);outline:2px solid var(--navy);outline-offset:1px;cursor:pointer}
+.bt-tag.bt-desel{background:var(--surface2);color:var(--text3);text-decoration:line-through;cursor:pointer;opacity:.5}
+.bt-tag.bt-cov{cursor:pointer}.bt-tag.bt-new{cursor:pointer}
+.upload-fname{font-size:12px;color:var(--blue);margin-top:4px;font-weight:500;word-break:break-all}
+.col-panel{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+.col-panel-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:.5px solid var(--border)}
+.col-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.col-row:last-child{margin-bottom:0}
+.col-lbl{font-size:12px;color:var(--text2);min-width:120px}
+.col-tag{font-size:10px;color:var(--text3);margin-left:4px}
+.col-row select{flex:1;font-size:13px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none;cursor:pointer}
+.col-row select:focus{border-color:var(--blue)}
+.tip{font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:.5rem .75rem;margin-bottom:.85rem}
+.tip.warn{background:var(--navy-bg);color:var(--navy)}
+.btn-primary{width:100%;padding:.7rem;font-size:14px;font-weight:600;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer;margin-bottom:1.75rem;transition:opacity .15s}
+.btn-primary:hover:not(:disabled){opacity:.88}
+.btn-primary:disabled{opacity:.35;cursor:default}
+.btn-sm{font-size:12px;padding:4px 12px;border-radius:6px;border:.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;white-space:nowrap;transition:background .15s}
+.btn-sm:hover{background:var(--surface2)}
+.btn-sm.blue{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-sm.blue:hover{opacity:.88}
+.btn-sm.teal{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-sm.teal:hover{opacity:.88}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.stat-card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:.8rem 1rem}
+.stat-num{font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.stat-lbl{font-size:11px;color:var(--text2);margin-top:4px}
+.green{color:var(--blue)}.purple{color:var(--slate)}.orange{color:var(--navy)}.blue-c{color:var(--blue-dark)}
+.calc-panel{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:1.25rem}
+.calc-title{font-size:13px;font-weight:600;margin-bottom:.6rem}
+.calc-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:.75rem}
+.calc-input-wrap{display:flex;align-items:center;gap:6px}
+.calc-input-wrap label{font-size:13px;color:var(--text2);white-space:nowrap}
+.target-input{width:72px;font-size:16px;font-weight:600;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none;text-align:center}
+.target-input:focus{border-color:var(--blue)}
+.cdivider{width:.5px;height:32px;background:var(--border2)}
+.cmetric{text-align:center;min-width:70px}
+.cmetric .cval{font-size:20px;font-weight:700;letter-spacing:-.02em}
+.cmetric .clbl{font-size:11px;color:var(--text2);margin-top:2px}
+.need .cval{color:var(--navy)}.covered .cval{color:var(--blue)}.gap .cval{color:var(--slate)}
+.calc-bar{height:8px;background:var(--surface2);border-radius:20px;overflow:hidden;display:flex;gap:2px}
+.bar-c{border-radius:20px;transition:width .4s;min-width:0}
+.calc-note{font-size:12px;color:var(--text2);margin-top:.5rem}
+.calc-note.ok{color:var(--blue)}.calc-note.warn{color:var(--navy)}
+.sel-bar{background:var(--blue-pale);border:.5px solid var(--blue-mid);border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;display:none;align-items:center;gap:10px;flex-wrap:wrap}
+.sel-bar.active{display:flex}
+.sel-info{font-size:13px;color:var(--blue-text);flex:1}
+.sel-info strong{font-weight:600}
+.sel-pct-badge{font-size:12px;background:var(--blue);color:#fff;border-radius:20px;padding:2px 10px;font-weight:600}
+.filter-row{display:flex;gap:8px;margin-bottom:.85rem;align-items:center;flex-wrap:wrap}
+.fbtn{font-size:12px;padding:4px 14px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-weight:500}
+.fbtn:hover{background:var(--surface2)}
+.fbtn.active-all{background:var(--surface2);color:var(--text)}
+.fbtn.active-new{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-text)}
+.fbtn.active-dup{background:var(--slate-bg);border-color:var(--slate);color:var(--slate-text)}
+.search-input{flex:1;min-width:140px;font-size:13px;padding:5px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none}
+.search-input:focus{border-color:var(--blue)}
+.table-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.5rem}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--surface2);padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.04em;text-transform:uppercase;border-bottom:.5px solid var(--border)}
+th.cb-col,td.cb-col{text-align:center;width:36px}
+td{padding:8px 10px;border-bottom:.5px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr.selected-row td{background:var(--blue-pale)}
+tr:hover td{background:var(--surface2)}
+tr.selected-row:hover td{background:var(--blue-bg)}
+.row-cb{width:16px;height:16px;cursor:pointer;accent-color:var(--blue)}
+td.style-no{font-weight:600;font-family:'Courier New',monospace;font-size:12.5px}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
+.badge-new{background:var(--blue-bg);color:var(--blue-text)}
+.badge-dup{background:var(--slate-bg);color:var(--slate-text)}
+.bt-tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;margin:1px 2px 1px 0;font-weight:500}
+.bt-cov{background:var(--blue-bg);color:var(--blue-text)}
+.bt-new{background:var(--navy-bg);color:var(--navy)}
+.bt-hist{background:var(--surface2);color:var(--text2)}
+.bt-unk{background:var(--surface2);color:var(--text3);font-style:italic}
+.empty-row td{text-align:center;color:var(--text3);padding:2.5rem}
+.update-section{margin-top:1.5rem;padding-top:1.25rem;border-top:.5px solid var(--border)}
+.update-btn{font-size:12px;padding:5px 14px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text2);cursor:pointer;font-weight:500}
+
+/* ── Progress tracker ─────────────────── */
+/* Season switcher */
+.season-switcher{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.season-tabs-wrap{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.season-pill{font-size:12px;font-weight:500;padding:4px 14px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s}
+.season-pill:hover{border-color:var(--blue);color:var(--blue)}
+.season-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.season-pill.archived{background:var(--surface2);color:var(--text3)}
+.season-pill .done-mark{font-size:11px}
+.season-pill .del-x{font-size:11px;opacity:.5;margin-left:2px;line-height:1;padding:0 2px;border-radius:3px;transition:opacity .15s,background .15s}
+.season-pill .del-x:hover{opacity:1;background:rgba(0,0,0,.15)}
+.season-pill.active .del-x:hover{background:rgba(255,255,255,.25)}
+.btn-add-season{font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;border:.5px dashed var(--border2);background:none;color:var(--text2);cursor:pointer;white-space:nowrap}
+.btn-add-season:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
+
+/* Add season form */
+.add-season-form{background:var(--surface);border:.5px solid var(--blue);border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:1.25rem}
+.add-season-title{font-size:14px;font-weight:600;margin-bottom:.85rem;color:var(--blue-text)}
+.form-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.form-lbl{font-size:12px;color:var(--text2);min-width:90px}
+.form-input{flex:1;font-size:13px;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none}
+.form-input:focus{border-color:var(--blue)}
+.form-actions{display:flex;gap:8px;margin-top:.85rem}
+
+/* Progress stats */
+.p-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
+.p-stat{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:.85rem 1rem}
+.p-stat .pval{font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.p-stat .plbl{font-size:11px;color:var(--text2);margin-top:3px}
+.p-stat .psub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* Progress bar */
+.pbar-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem}
+.pbar-header{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px}
+.pbar{height:10px;background:var(--surface2);border-radius:20px;overflow:hidden;display:flex;gap:2px}
+.pbar-legend{display:flex;gap:14px;margin-top:6px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+/* Filter */
+.pfbtn{font-size:12px;padding:4px 14px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-weight:500}
+.pfbtn:hover{background:var(--surface2)}
+.pfbtn.pf-active{background:var(--surface2);color:var(--text)}
+.pfbtn.pf-ordered{background:var(--blue-pale);border-color:var(--blue-mid);color:var(--blue-text)}
+.pfbtn.pf-done{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-text)}
+.pfbtn.pf-pending{background:var(--navy-bg);border-color:var(--navy);color:var(--navy)}
+
+/* Toggle */
+input:checked + input:checked + .note-input{font-size:12px;border:none;background:transparent;color:var(--text2);outline:none;width:100%;min-width:80px}
+.p-cb{width:18px;height:18px;cursor:pointer;accent-color:var(--blue);flex-shrink:0}
+.p-cb.blue-cb{accent-color:var(--blue-dark)}
+.note-input:focus{background:var(--surface2);border-radius:4px;padding:0 4px}
+.note-input::placeholder{color:var(--text3)}
+tr.p-done td{background:var(--blue-pale)}
+tr.p-done:hover td{background:var(--blue-bg)}
+
+/* Archived banner */
+.archived-banner{background:var(--blue-bg);border:.5px solid var(--blue);border-radius:10px;padding:.65rem 1rem;margin-bottom:1.25rem;font-size:13px;color:var(--blue-text);display:flex;align-items:center;gap:8px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1a1a18;color:#fff;padding:.6rem 1.1rem;border-radius:8px;font-size:13px;z-index:100;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.teal-t{background:var(--blue)}
+.toast.red-t{background:#c0392b}
+</style>
+</head>
+<body>
+<header>
+  <div class="dot"></div>
+  <h1>3D Final Sample 工具<span>比對 & 進度管理</span></h1>
+  <div class="hist-badge" id="hist-badge">歷史：FA25 / SP26 / SU26 · 54 款</div>
+</header>
+<div class="tab-bar">
+  <button class="tab-btn active" id="tab-btn-compare" onclick="switchTab('compare')"> 款式比對</button>
+  <button class="tab-btn" id="tab-btn-progress" onclick="switchTab('progress')"> 當季進度</button>
+</div>
+<main>
+
+<!-- ══ TAB 1: 款式比對 ══════════════════════════════════ -->
+<div id="tab-compare" class="tab-content active">
+    <label class="upload-box" id="box-season"
+    ondragover="event.preventDefault();document.getElementById('box-season').classList.add('drag-over')"
+    ondragleave="document.getElementById('box-season').classList.remove('drag-over')"
+    ondrop="handleFileDrop(event,'season')">
+    <input type="file" accept=".xlsx,.xls,.csv" id="file-season">
+    <div class="upload-inner">
+      <div><div style="font-size:13px;font-weight:600;margin-bottom:2px">拖曳或點擊上傳 Excel</div><div style="font-size:12px;color:var(--text2)">支援 .xlsx / .xls / .csv</div><div class="upload-fname" id="fname-season"></div></div>
+    </div>
+  </label>
+  <div id="col-setup-area" style="display:none;margin-bottom:1.25rem">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+      <div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">款號</div>
+        <select id="s-style" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"></select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">季節代碼</div>
+        <select id="s-season" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"><option value="">—</option></select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">Body Type 數量</div>
+        <select id="s-bt-count" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"><option value="">—</option></select>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">Body Type</div>
+        <select id="s-bt-types" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"><option value="">—</option></select>
+      </div>
+    </div>
+  </div>
+  <button class="btn-primary" id="btn-compare" disabled>開始比對</button>
+  <div id="result-area" style="display:none">
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="cnt-total">0</div><div class="stat-lbl">本季總款數</div></div>
+      <div class="stat-card"><div class="stat-num orange" id="cnt-bt-total">0</div><div class="stat-lbl">總 Body Type 數</div></div>
+      <div class="stat-card"><div class="stat-num green" id="cnt-new">0</div><div class="stat-lbl">未做過</div></div>
+      <div class="stat-card"><div class="stat-num purple" id="cnt-dup">0</div><div class="stat-lbl">C/O</div></div>
+    </div>
+    <div class="calc-panel">
+      
+      <div class="calc-row">
+        <div class="calc-input-wrap"><label>本季目標</label><input type="number" class="target-input" id="target-pct" value="80" min="1" max="100" oninput="updateCalc()"><label>%</label></div>
+        <div class="cdivider"></div>
+        <div class="cmetric need"><div class="cval" id="calc-need">—</div><div class="clbl">需完成</div></div>
+        <div class="cdivider"></div>
+        <div class="cmetric covered"><div class="cval" id="calc-covered">—</div><div class="clbl">歷史涵蓋</div></div>
+        <div class="cdivider"></div>
+        <div class="cmetric gap"><div class="cval" id="calc-gap">—</div><div class="clbl">還需製作</div></div>
+        <div class="cdivider"></div>
+        <div class="cmetric"><div class="cval" id="calc-sel" style="color:var(--blue)">—</div><div class="clbl">已選 Body Type</div></div>
+      </div>
+      <div class="calc-bar"><div class="bar-c" id="bar-cov" style="width:0%;background:var(--blue)"></div><div class="bar-c" id="bar-sel" style="width:0%;background:var(--blue-mid);opacity:.8"></div><div class="bar-c" id="bar-tgt" style="width:0%;background:var(--navy);opacity:.35"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:4px"><span id="bar-cov-lbl">歷史涵蓋 0%</span><span id="bar-sel-lbl" style="color:var(--blue)"></span><span id="bar-tgt-lbl">目標 80%</span></div>
+      <div class="calc-note" id="calc-note"></div>
+    </div>
+    <div class="sel-bar" id="sel-bar">
+      <div class="sel-info">已選 <strong id="sel-count">0</strong> 款 · <strong id="sel-bt-count">0</strong> 個 Body Type</div>
+      <div class="sel-pct-badge" id="sel-pct-badge">佔本季 0%</div>
+      <button class="btn-sm teal" onclick="showCreateSeasonModal()"> 建立當季進度追蹤</button>
+      <button class="btn-sm blue" onclick="exportSelected()">匯出已選款</button>
+      <button class="btn-sm" onclick="clearSelection()">清除選取</button>
+    </div>
+
+    <!-- Create season modal -->
+    <div id="create-season-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;align-items:center;justify-content:center">
+      <div style="background:var(--surface);border-radius:16px;padding:1.5rem;width:400px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+        <div style="font-size:16px;font-weight:600;margin-bottom:.35rem"> 建立當季進度追蹤</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:1rem"><strong id="modal-sel-count">0</strong> 款 · <strong id="modal-sel-bt">0</strong> BT</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:12px;color:var(--text2);min-width:90px">季別名稱</span>
+          <input type="text" id="modal-season-name" placeholder="例如 FA26、SP27" style="flex:1;font-size:14px;font-weight:600;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none">
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">
+          <span style="font-size:12px;color:var(--text2);min-width:90px">本季總 Body Type 數</span>
+          <input type="number" id="modal-total-bt" placeholder="業務表格全部款式 Body Type 加總" style="flex:1;font-size:13px;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none">
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="confirmCreateSeason()" style="flex:1;padding:.6rem;font-size:13px;font-weight:600;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer"> 建立並切換到進度頁</button>
+          <button onclick="hideCreateSeasonModal()" style="padding:.6rem 1rem;font-size:13px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer">取消</button>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <button class="fbtn active-all" id="f-all" onclick="setFilter('all')">全部</button>
+      <button class="fbtn" id="f-new" onclick="setFilter('new')">只看未做過</button>
+      <button class="fbtn" id="f-dup" onclick="setFilter('dup')">只看 C/O</button>
+      <input class="search-input" type="text" id="search" placeholder="搜尋款號…" oninput="renderTable()">
+      <button class="btn-sm" onclick="exportAll()">匯出全部</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="cb-col"><input type="checkbox" id="cb-all" class="row-cb" onchange="toggleAll(this.checked)"></th>
+          <th style="width:36px">#</th><th>款號</th><th style="width:80px">本季季節</th><th style="width:80px">狀態</th><th>本季 Body Types</th><th>歷史已做</th><th style="width:100px">歷史季別</th>
+        </tr></thead>
+        <tbody id="tbody"><tr class="empty-row"><td colspan="8">請上傳當季下單表並點擊「開始比對」</td></tr></tbody>
+      </table>
+    </div>
+    <div class="update-section"><label style="cursor:pointer"><input type="file" accept=".xlsx,.xls,.csv" id="file-history-update" style="display:none"><span class="update-btn"> 更新歷史資料</span></label><span id="hist-update-msg" style="font-size:12px;color:var(--blue);margin-left:10px;display:none"></span></div>
+  </div>
+</div>
+
+<!-- ══ TAB 2: 當季進度 ══════════════════════════════════ -->
+<div id="tab-progress" class="tab-content">
+
+  <!-- Season switcher -->
+  <div class="season-switcher">
+    <div class="season-tabs-wrap" id="season-tabs"></div>
+    <button class="btn-add-season" onclick="showAddSeasonForm()">＋ 新增季別</button>
+  </div>
+
+  <!-- Add season form -->
+  <div class="add-season-form" id="add-season-form" style="display:none">
+        <div class="form-row">
+      <span class="form-lbl">季別名稱</span>
+      <input type="text" class="form-input" id="new-season-name" placeholder="例如 SP27" style="max-width:140px">
+    </div>
+    <div class="form-row">
+      <span class="form-lbl">本季總 Body Type 數</span>
+      <input type="number" class="form-input" id="new-season-totalbt" placeholder="例如 120" style="max-width:120px">
+      <span style="font-size:12px;color:var(--text3)">（業務表格中全部款式的 Body Type 加總）</span>
+    </div>
+    <div class="form-row" style="align-items:flex-start">
+      <span class="form-lbl" style="padding-top:4px">上傳下單 Excel</span>
+      <div style="flex:1">
+        <label class="upload-box" id="box-new-season" style="margin-bottom:0;padding:.85rem 1rem">
+          <input type="file" accept=".xlsx,.xls,.csv" id="file-new-season">
+          <div class="upload-inner">
+            <div class="upload-icon" style="width:32px;height:32px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+            <div><div style="font-size:12px;font-weight:600">點此上傳</div><div class="upload-fname" id="fname-new-season"></div></div>
+          </div>
+        </label>
+        <div id="new-season-col-setup" style="display:none;margin-top:10px">
+          <div style="margin-top:8px">
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+              <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">款號</div><select id="ns-style" style="width:100%;font-size:12px;padding:4px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none"></select></div>
+              <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Body Type 數量</div><select id="ns-bt-count" style="width:100%;font-size:12px;padding:4px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none"><option value="">—</option></select></div>
+              <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Body Type</div><select id="ns-bt-types" style="width:100%;font-size:12px;padding:4px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none"><option value="">—</option></select></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-sm teal" onclick="confirmAddSeason()"> 確認新增</button>
+      <button class="btn-sm" onclick="hideAddSeasonForm()">取消</button>
+    </div>
+  </div>
+
+  <!-- Season content (dynamic) -->
+  <div id="season-content"></div>
+
+</div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ 工具函式 ═════════════════════════════════════════════
+function baseStyle(s){return String(s||'').trim().split('\n')[0].replace(/\+PO.*/i,'').replace(/_[A-Z]{2}\d{2}$/i,'').replace(/\s*\(.*\)$/,'').trim().toUpperCase()}
+function isValidStyleNum(s){return /^[A-Z]{2,}\d/i.test(s.trim())}
+function parseBTTypes(val){if(!val)return[];return String(val).split(/[\n+,\/\\]/).map(s=>s.trim().toUpperCase()).filter(s=>s.length>0)}
+function btMatch(a,b){a=a.toUpperCase().trim();b=b.toUpperCase().trim();if(a===b)return true;if(a.startsWith(b)||b.startsWith(a))return true;const syns=[['REG','REGULAR','REGULAR FIT'],['PLUS','PLUS SIZE'],['PETITE','PETITE FIT'],['B&T','BIG & TALL','BIG AND TALL','TALL'],['ADP','ADAPTIVE']];for(const g of syns){if(g.some(x=>a.startsWith(x)||x.startsWith(a))&&g.some(x=>b.startsWith(x)||x.startsWith(b)))return true}return false}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function dim(s){return`<span style="color:var(--text3)">${s}</span>`}
+function showToast(msg,type='teal-t'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.className='toast',2500)}
+function readExcel(file,cb){const r=new FileReader();r.onload=e=>{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];cb(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));};r.readAsArrayBuffer(file);}
+function getHeaders(rows){return(rows[0]||[]).map((h,i)=>({label:String(h||`欄${i+1}`),value:String(i)}))}
+function fillSel(sel,hdrs,guessReg,opt){sel.innerHTML=opt?'<option value="">—</option>':'';hdrs.forEach(h=>{const o=document.createElement('option');o.value=h.value;o.textContent=h.label;sel.appendChild(o);});const gi=hdrs.findIndex(h=>guessReg.test(h.label));if(gi>=0)sel.value=String(gi)}
+
+// ══ 歷史資料 ═════════════════════════════════════════════
+const HISTORY_RAW={
+"DX5FA000":{s:["FA25"],bt:["REG"]},"ET33A401":{s:["SP26"],bt:["REG"]},
+"EX5FV403":{s:["FA25"],bt:["REG"]},"MA5FK304":{s:["FA25"],bt:["REG"]},
+"MA6SK101":{s:["SU26"],bt:["REG"]},"MA6UK100":{s:["SU26"],bt:["REG","B&T"]},
+"MA6UK101":{s:["SU26"],bt:["REG","B&T"]},"MS53K505":{s:["FA25"],bt:["REG"]},
+"MT03A111":{s:["SU26"],bt:["REG","PLUS"]},"MT41A334":{s:["FA25"],bt:["REG"]},
+"MT43A102":{s:["FA25"],bt:["REG"]},"MT44A405":{s:["FA25"],bt:["REG"]},
+"MT52A001":{s:["FA25"],bt:["REG"]},"MT5FA103":{s:["FA25"],bt:["REG"]},
+"MT5FA106":{s:["FA25","SP26","SU26"],bt:["REG"]},"MX23A107":{s:["FA25"],bt:["REG"]},
+"MX23A408":{s:["FA25"],bt:["REG"]},"MX43A409":{s:["FA25","SU26"],bt:["REG"]},
+"MX43A413":{s:["SP26"],bt:["REG"]},"MX51A206":{s:["FA25","SP26"],bt:["REG"]},
+"MX51A207":{s:["FA25","SP26"],bt:["REG"]},"MX5FJ425":{s:["FA25","SP26","SU26"],bt:["REG","PLUS"]},
+"MX5HJ431":{s:["SP26"],bt:["REG"]},"MX5HK101":{s:["SP26"],bt:["REG"]},
+"MX6SJ303":{s:["SP26"],bt:["REG"]},"MX6SK005":{s:["SU26"],bt:["REG"]},
+"MX6SK007":{s:["SP26","SU26"],bt:["REG","PLUS"]},"MX6SK016":{s:["SU26"],bt:["REG","PLUS"]},
+"WC43J001":{s:["FA25","SP26"],bt:["REG"]},"WC44X065":{s:["FA25"],bt:["REG"]},
+"WC5FG301":{s:["FA25"],bt:["REG"]},"WC5FK060":{s:["FA25"],bt:["REG"]},
+"WC6SJ007":{s:["SU26"],bt:["REG"]},"WC6SJ101":{s:["SU26"],bt:["REG","PLUS","PETITE"]},
+"WT23A501":{s:["SP26","SU26"],bt:["REG","PLUS"]},"WT23A502":{s:["SU26"],bt:["REG","PETITE","PLUS"]},
+"WT24A301":{s:["SP26"],bt:["REG"]},"WT24A400":{s:["SU26"],bt:["REG","PETITE","PLUS"]},
+"WT24A511":{s:["SU26"],bt:["REG","PLUS"]},"WT41A506":{s:["SP26"],bt:["REG"]},
+"WT5FA257":{s:["FA25"],bt:["REG"]},"WX43A124":{s:["FA25"],bt:["REG"]},
+"WX43A128":{s:["FA25"],bt:["REG"]},"WX43A129":{s:["FA25"],bt:["REG"]},
+"WX51A302":{s:["FA25"],bt:["REG"]},"WX52A503":{s:["SP26"],bt:["REG"]},
+"WX52V301":{s:["FA25"],bt:["REG"]},"WX5FA119":{s:["SP26"],bt:["REG"]},
+"WX5FA512":{s:["FA25","SP26","SU26"],bt:["REG"]},"WX6SA107":{s:["SP26","SU26"],bt:["REG"]},
+"WX6SA300":{s:["SU26"],bt:["REG"]},"WX6UA100":{s:["SU26"],bt:["REG"]},
+"WX6UA505":{s:["SU26"],bt:["REG"]},"ZS5FX410":{s:["FA25"],bt:["REG"]}
+};
+let historyMap=JSON.parse(JSON.stringify(HISTORY_RAW));
+
+// ══ FA26 預設款式清單 ═════════════════════════════════════
+const FA26_PLAN=[
+{base:"ET33A401",bt:["REG","HUSKY"],btCount:2},{base:"MT03A111",bt:["REG","PLUS"],btCount:2},
+{base:"WT6FA124",bt:["PLUS","REG"],btCount:2},{base:"WT5FA257",bt:["REG","PLUS"],btCount:2},
+{base:"MS6SK325",bt:["REG"],btCount:1},{base:"WT23A502",bt:["PLUS","PETITE","REG"],btCount:3},
+{base:"WT24A511",bt:["PLUS","REG"],btCount:2},{base:"WT41A506",bt:["REG","PETITE","PLUS"],btCount:3},
+{base:"WT24A501",bt:["REG","PETITE","PLUS"],btCount:3},{base:"WT23A501",bt:["PLUS","REG"],btCount:2},
+{base:"WT24A400",bt:["PLUS","PETITE","REG"],btCount:3},{base:"WT24A301",bt:["PLUS","REG"],btCount:2},
+{base:"WT31A302",bt:["PLUS","REG"],btCount:2},{base:"MA6SK101",bt:["REG"],btCount:1},
+{base:"MX5FJ425",bt:["REG","B&T"],btCount:2},{base:"MX43A401",bt:["REG","PLUS"],btCount:2},
+{base:"MX51A206",bt:["REG","PLUS"],btCount:2},{base:"MX43A409",bt:["REG"],btCount:1},
+{base:"MX43A413",bt:["REG"],btCount:1},{base:"MX6SK007",bt:["REG","PLUS"],btCount:2},
+{base:"MX6SK016",bt:["REG"],btCount:1},{base:"MX5HK101",bt:["REG","B&T"],btCount:2},
+{base:"MX6SK104",bt:["REG"],btCount:1},{base:"MX5HJ431",bt:["REG"],btCount:1},
+{base:"MX6SK108",bt:["REG","PLUS"],btCount:2},{base:"MX6FK207",bt:["REG"],btCount:1},
+{base:"MX6FJ409",bt:["REG"],btCount:1},{base:"MX6FK108",bt:["REG"],btCount:1},
+{base:"WX6FA117",bt:["REG"],btCount:1},{base:"WX6FA516",bt:["REG"],btCount:1},
+{base:"WX6UA505",bt:["REG"],btCount:1},{base:"WX6UA100",bt:["REG"],btCount:1},
+{base:"WX5FA512",bt:["REG"],btCount:1},{base:"WX6FA513",bt:["REG"],btCount:1},
+{base:"WX6FA216",bt:["REG"],btCount:1},
+];
+
+// ══ 多季管理 ═════════════════════════════════════════════
+const STORAGE_KEY='3d_seasons_v2';
+let allSeasons={};     // {seasonKey: {name, totalBT, styles:[{base,bt,btCount}], progress:{base:{ordered,done,note}}}}
+let currentSeasonKey='FA26';
+let newSeasonRows=[];  // raw rows from uploaded Excel for new season
+
+function loadAllSeasons(){
+  try{
+    const d=localStorage.getItem(STORAGE_KEY);
+    if(d) allSeasons=JSON.parse(d);
+  }catch(e){}
+  // Ensure FA26 always exists (pre-loaded)
+  if(!allSeasons['FA26']){
+    allSeasons['FA26']={name:'FA26',totalBT:115,styles:FA26_PLAN,progress:{}};
+  } else {
+    allSeasons['FA26'].styles=FA26_PLAN; // always use latest FA26 plan
+    allSeasons['FA26'].totalBT=115;
+  }
+  // Init missing progress entries
+  Object.values(allSeasons).forEach(season=>{
+    if(!season.progress) season.progress={};
+    season.styles.forEach(s=>{
+      if(!season.progress[s.base]) season.progress[s.base]={ordered:false,done:false,note:''};
+    });
+  });
+}
+
+function saveAllSeasons(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(allSeasons));}catch(e){}
+}
+
+function rebuildHistoryFromSeasons(){
+  // Reset to base history
+  historyMap=JSON.parse(JSON.stringify(HISTORY_RAW));
+  // Add completed items from ALL seasons
+  Object.entries(allSeasons).forEach(([seasonKey,season])=>{
+    season.styles.forEach(s=>{
+      const st=season.progress[s.base];
+      if(st?.done){
+        if(!historyMap[s.base]) historyMap[s.base]={s:[],bt:[]};
+        if(!historyMap[s.base].s.includes(seasonKey)) historyMap[s.base].s.push(seasonKey);
+        s.bt.forEach(b=>{if(!historyMap[s.base].bt.includes(b)) historyMap[s.base].bt.push(b);});
+      }
+    });
+  });
+  updateHistBadge();
+}
+
+function updateHistBadge(){
+  document.getElementById('hist-badge').textContent=`歷史：${Object.keys(historyMap).length} 款`;
+}
+
+// ══ Season UI ═════════════════════════════════════════════
+function renderSeasonTabs(){
+  const wrap=document.getElementById('season-tabs');
+  const keys=Object.keys(allSeasons);
+  wrap.innerHTML=keys.map(k=>{
+    const s=allSeasons[k];
+    const totalStyles=s.styles.length;
+    const doneStyles=s.styles.filter(st=>s.progress[st.base]?.done).length;
+    const isComplete=doneStyles===totalStyles&&totalStyles>0;
+    const isActive=k===currentSeasonKey;
+    return`<span class="season-pill${isActive?' active':''}${isComplete&&!isActive?' archived':''}" onclick="switchSeason('${k}')">
+      ${isComplete?' ':''}<strong>${k}</strong>&nbsp;<span style="opacity:.7;font-size:11px">${doneStyles}/${totalStyles}</span>
+      <span class="del-x" onclick="event.stopPropagation();deleteSeason('${k}')" title="刪除此季別"></span>
+    </span>`;
+  }).join('');
+}
+
+function deleteSeason(key){
+  const doneCount=allSeasons[key]?.styles.filter(s=>allSeasons[key].progress[s.base]?.done).length||0;
+  const msg=doneCount>0
+    ?`確定要刪除「${key}」季別嗎？
+
+此季有 ${doneCount} 款已完成，刪除後歷史紀錄中來自此季的記錄也會一併移除。`
+    :`確定要刪除「${key}」季別嗎？`;
+  if(!confirm(msg))return;
+  delete allSeasons[key];
+  saveAllSeasons();
+  // Switch to another season if deleted current
+  const remaining=Object.keys(allSeasons);
+  if(currentSeasonKey===key) currentSeasonKey=remaining[remaining.length-1]||'';
+  rebuildHistoryFromSeasons();
+  renderSeasonTabs();
+  renderSeasonContent();
+  showToast(`已刪除季別 ${key}`,'red-t');
+}
+
+function switchSeason(key){
+  currentSeasonKey=key;
+  renderSeasonTabs();
+  renderSeasonContent();
+}
+
+function renderSeasonContent(){
+  const season=allSeasons[currentSeasonKey];
+  if(!season){document.getElementById('season-content').innerHTML='';return;}
+  const totalStyles=season.styles.length;
+  const doneSt=season.styles.filter(s=>season.progress[s.base]?.done);
+  const ordSt=season.styles.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
+  const doneBT=doneSt.reduce((sum,s)=>sum+s.btCount,0);
+  const ordBT=ordSt.reduce((sum,s)=>sum+s.btCount,0);
+  const totalPlanBT=season.styles.reduce((sum,s)=>sum+s.btCount,0);
+  const achievePct=season.totalBT?(doneBT/season.totalBT*100).toFixed(1):0;
+  const isComplete=doneSt.length===totalStyles&&totalStyles>0;
+  const doneW=season.totalBT?Math.min(doneBT/season.totalBT*100,100):0;
+  const ordW=season.totalBT?Math.min(ordBT/season.totalBT*100,100-doneW):0;
+  const target50gap=Math.max(0,50-doneW-ordW);
+
+  const content=document.getElementById('season-content');
+  content.innerHTML=`
+    ${isComplete?`<div class="archived-banner" style="font-size:12px;padding:.5rem .85rem;margin-bottom:.85rem"> <strong>${currentSeasonKey}</strong> 全部完成 · ${doneBT} 個 Body Type 已入歷史</div>`:''}
+        <div class="p-stats">
+      <div class="p-stat"><div class="pval"><span style="color:var(--blue)">${doneSt.length}</span> <span style="font-size:15px;color:var(--text2)">/ ${totalStyles} 款</span></div><div class="plbl">已完成</div></div>
+      <div class="p-stat"><div class="pval"><span style="color:var(--blue-dark)">${ordSt.length+doneSt.length}</span> <span style="font-size:15px;color:var(--text2)">/ ${totalStyles} 款</span></div><div class="plbl">已進單</div></div>
+      <div class="p-stat"><div class="pval" style="color:var(--navy)">${achievePct}%</div><div class="plbl">達成率</div></div>
+    </div>
+    <div class="pbar-wrap" style="padding:.6rem 1rem;margin-bottom:1rem">
+      <div class="pbar">
+        <div class="bar-c" style="width:${doneW}%;background:var(--blue)"></div>
+        <div class="bar-c" style="width:${ordW}%;background:var(--blue-mid);opacity:.7"></div>
+        <div class="bar-c" style="width:${target50gap}%;background:var(--navy);opacity:.3"></div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <button class="pfbtn pf-active" id="pf-all" onclick="setPFilter('all')">全部（${totalStyles}）</button>
+      <button class="pfbtn" id="pf-pending" onclick="setPFilter('pending')">待進單（${season.styles.filter(s=>!season.progress[s.base]?.ordered&&!season.progress[s.base]?.done).length}）</button>
+      <button class="pfbtn" id="pf-ordered" onclick="setPFilter('ordered')">已進單（${ordSt.length}）</button>
+      <button class="pfbtn" id="pf-done" onclick="setPFilter('done')">已完成（${doneSt.length}）</button>
+      <input class="search-input" type="text" id="p-search" placeholder="搜尋款號…" oninput="renderProgressTable()">
+      <button class="btn-sm" onclick="exportProgress()">匯出進度表</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:36px">#</th><th>款號</th><th>Body Types</th>
+          <th style="width:60px;text-align:center">Body Type 數</th>
+          <th style="width:80px;text-align:center"> 已進單</th>
+          <th style="width:80px;text-align:center"> 已完成</th>
+          <th>備註</th>
+        </tr></thead>
+        <tbody id="p-tbody"></tbody>
+      </table>
+    </div>`;
+  pCurrentFilter='all';
+  renderProgressTable();
+}
+
+let pCurrentFilter='all';
+
+function setPFilter(f){
+  pCurrentFilter=f;
+  const season=allSeasons[currentSeasonKey];
+  const totalStyles=season.styles.length;
+  const doneSt=season.styles.filter(s=>season.progress[s.base]?.done).length;
+  const ordSt=season.styles.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done).length;
+  const pendSt=season.styles.filter(s=>!season.progress[s.base]?.ordered&&!season.progress[s.base]?.done).length;
+  ['all','pending','ordered','done'].forEach(id=>{
+    const btn=document.getElementById('pf-'+id);
+    if(!btn)return;
+    const labels={all:`全部（${totalStyles}）`,pending:`待進單（${pendSt}）`,ordered:`已進單（${ordSt}）`,done:`已完成（${doneSt}）`};
+    btn.textContent=labels[id];
+    btn.className='pfbtn'+(f===id?' pf-'+id:'');
+  });
+  renderProgressTable();
+}
+
+function getPFiltered(){
+  const season=allSeasons[currentSeasonKey];
+  if(!season)return[];
+  const q=(document.getElementById('p-search')?.value||'').trim().toUpperCase();
+  let items=season.styles;
+  if(pCurrentFilter==='pending') items=items.filter(s=>!season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
+  else if(pCurrentFilter==='ordered') items=items.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
+  else if(pCurrentFilter==='done') items=items.filter(s=>season.progress[s.base]?.done);
+  if(q) items=items.filter(s=>s.base.includes(q));
+  return items;
+}
+
+function renderProgressTable(){
+  const season=allSeasons[currentSeasonKey];
+  if(!season)return;
+  const items=getPFiltered();
+  const tbody=document.getElementById('p-tbody');
+  if(!tbody)return;
+  if(!items.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">沒有符合條件的款式</td></tr>';return;}
+  tbody.innerHTML=items.map((s,i)=>{
+    const st=season.progress[s.base]||{ordered:false,done:false,note:''};
+    const btTags=s.bt.map(b=>`<span class="bt-tag bt-hist">${esc(b)}</span>`).join('');
+    const rowCls=st.done?'p-done':'';
+    return`<tr class="${rowCls}">
+      <td style="color:var(--text3);font-size:11px">${i+1}</td>
+      <td class="style-no">${esc(s.base)}</td>
+      <td>${btTags}</td>
+      <td style="text-align:center;font-weight:600;color:var(--text2)">${s.btCount}</td>
+      <td style="text-align:center"><input type="checkbox" class="p-cb blue-cb" ${st.ordered?'checked':''} onchange="onOrderedChange('${esc(s.base)}',this.checked)"></td>
+      <td style="text-align:center"><input type="checkbox" class="p-cb" ${st.done?'checked':''} onchange="onDoneToggle('${esc(s.base)}',this.checked)"></td>
+      <td><input class="note-input" type="text" value="${esc(st.note||'')}" placeholder="備註…" onchange="onNoteChange('${esc(s.base)}',this.value)"></td>
+    </tr>`;
+  }).join('');
+}
+
+function onOrderedChange(base,checked){
+  const season=allSeasons[currentSeasonKey];if(!season)return;
+  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:''};
+  season.progress[base].ordered=checked;
+  saveAllSeasons();renderSeasonContent();
+}
+
+function onDoneToggle(base,checked){
+  const season=allSeasons[currentSeasonKey];if(!season)return;
+  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:''};
+  season.progress[base].done=checked;
+  if(checked) season.progress[base].ordered=true;
+  saveAllSeasons();
+  rebuildHistoryFromSeasons();
+  showToast(checked?` ${base} 已加入歷史紀錄`:`${base} 已從歷史移除`,checked?'teal-t':'red-t');
+  renderSeasonContent();
+  renderSeasonTabs();
+}
+
+function onNoteChange(base,val){
+  const season=allSeasons[currentSeasonKey];if(!season)return;
+  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:''};
+  season.progress[base].note=val;
+  saveAllSeasons();
+}
+
+function exportProgress(){
+  const season=allSeasons[currentSeasonKey];if(!season)return;
+  const data=[['款號','Body Types','Body Type 數','已進單','已完成','備註'],
+    ...season.styles.map(s=>{const st=season.progress[s.base]||{};return[s.base,s.bt.join('+'),s.btCount,st.ordered?'':'',st.done?'':'',st.note||''];})];
+  const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:16},{wch:24},{wch:8},{wch:8},{wch:8},{wch:24}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentSeasonKey+'進度');
+  XLSX.writeFile(wb,`3D_${currentSeasonKey}_進度.xlsx`);
+}
+
+// ══ 新增季別 ═══════════════════════════════════════════
+function showAddSeasonForm(){document.getElementById('add-season-form').style.display='block';document.getElementById('add-season-form').scrollIntoView({behavior:'smooth',block:'start'});}
+function hideAddSeasonForm(){document.getElementById('add-season-form').style.display='none';newSeasonRows=[];}
+
+document.getElementById('file-new-season').addEventListener('change',function(){
+  if(!this.files[0])return;
+  document.getElementById('fname-new-season').textContent=this.files[0].name;
+  document.getElementById('box-new-season').classList.add('done');
+  readExcel(this.files[0],rows=>{
+    newSeasonRows=rows;
+    const hdrs=getHeaders(rows);
+    fillSel(document.getElementById('ns-style'),hdrs,/style|款式|編號|item/i,false);
+    fillSel(document.getElementById('ns-bt-count'),hdrs,/^body.?type$|^bt$|body.*qty/i,true);
+    fillSel(document.getElementById('ns-bt-types'),hdrs,/3d.*製作|製作|bt.*type.*list/i,true);
+    document.getElementById('new-season-col-setup').style.display='block';
+  });
+});
+
+function confirmAddSeason(){
+  const name=document.getElementById('new-season-name').value.trim().toUpperCase();
+  if(!name){alert('請輸入季別名稱');return;}
+  if(allSeasons[name]){if(!confirm(`${name} 已存在，確定要覆蓋？`))return;}
+  const totalBT=parseInt(document.getElementById('new-season-totalbt').value)||0;
+
+  let styles=[];
+  if(newSeasonRows.length){
+    const sCol=parseInt(document.getElementById('ns-style').value);
+    const btCCol=document.getElementById('ns-bt-count').value;
+    const btTCol=document.getElementById('ns-bt-types').value;
+    const seen=new Set();
+    newSeasonRows.slice(1).forEach(row=>{
+      const rawVal=String(row[sCol]||'').trim();if(!rawVal)return;
+      const base=baseStyle(rawVal);if(!base||!isValidStyleNum(base))return;
+      if(seen.has(base))return;seen.add(base);
+      let btCount=1;if(btCCol){const n=parseInt(row[parseInt(btCCol)]);if(!isNaN(n)&&n>0)btCount=n;}
+      let bt=[];if(btTCol)bt=parseBTTypes(row[parseInt(btTCol)]);
+      if(!bt.length)bt=btCount===1?['REG']:['REG'];
+      styles.push({base,bt,btCount});
+    });
+  }
+
+  allSeasons[name]={name,totalBT,styles,progress:{}};
+  styles.forEach(s=>{allSeasons[name].progress[s.base]={ordered:false,done:false,note:''};});
+  saveAllSeasons();
+  currentSeasonKey=name;
+  hideAddSeasonForm();
+  renderSeasonTabs();
+  renderSeasonContent();
+  showToast(` 已新增季別 ${name}（${styles.length} 款）`,'teal-t');
+}
+
+// ══ Tab 切換 ══════════════════════════════════════════════
+function switchTab(tab){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById('tab-btn-'+tab).classList.add('active');
+  if(tab==='progress'){renderSeasonTabs();renderSeasonContent();}
+}
+
+// ══ 款式比對（Tab 1）═══════════════════════════════════
+let seasonData=[],results=[],currentFilter='all',totalBT=0,coveredBT=0;
+const selectedStyles=new Set();
+const selectedBTs={}; // base → Set of selected BT names
+
+document.getElementById('file-season').addEventListener('change',function(){
+  if(!this.files[0])return;
+  document.getElementById('fname-season').textContent=this.files[0].name;
+  document.getElementById('box-season').classList.add('done');
+  readExcel(this.files[0],rows=>{
+    seasonData=rows;const hdrs=getHeaders(rows);
+    fillSel(document.getElementById('s-style'),hdrs,/style|款式|編號|item/i,false);
+    fillSel(document.getElementById('s-season'),hdrs,/^season$|季節|季別/i,true);
+    fillSel(document.getElementById('s-bt-count'),hdrs,/body.*type.*qty|body.*type.*\(qty|bt.*qty/i,true);
+    fillSel(document.getElementById('s-bt-types'),hdrs,/^body\s*type$|^body_type$/i,true);
+    document.getElementById('col-setup-area').style.display='block';
+    document.getElementById('btn-compare').disabled=false;
+    checkBTWarn();
+  });
+});
+document.getElementById('s-bt-types').addEventListener('change',checkBTWarn);
+function checkBTWarn(){document.getElementById('bt-warn').style.display=document.getElementById('s-bt-types').value?'none':'block';}
+
+document.getElementById('btn-compare').addEventListener('click',runCompare);
+function runCompare(){
+  const sStyleCol=parseInt(document.getElementById('s-style').value);
+  const sSeasonVal=document.getElementById('s-season').value;
+  const sBTCountVal=document.getElementById('s-bt-count').value;
+  const sBTTypesVal=document.getElementById('s-bt-types').value;
+  const hasBTTypes=!!sBTTypesVal;
+  results=[];const seen=new Set();
+  seasonData.slice(1).forEach(row=>{
+    const rawVal=String(row[sStyleCol]||'').trim();if(!rawVal)return;
+    const base=baseStyle(rawVal);if(!base||!isValidStyleNum(base))return;
+    if(seen.has(base))return;seen.add(base);
+    const season=sSeasonVal?String(row[parseInt(sSeasonVal)]||'').trim():'';
+    let btCount=1;if(sBTCountVal){const n=parseInt(row[parseInt(sBTCountVal)]);if(!isNaN(n)&&n>0)btCount=n;}
+    let btTypes=[];if(hasBTTypes)btTypes=parseBTTypes(row[parseInt(sBTTypesVal)]);
+    const btTypesKnown=btTypes.length>0;
+    const hist=historyMap[base];const isDup=!!hist;
+    const histBT=hist?hist.bt:[];const histSeasons=hist?hist.s:[];
+    let coveredTypes=[],newTypes=[];
+    if(btTypesKnown){coveredTypes=btTypes.filter(b=>histBT.some(h=>btMatch(b,h)));newTypes=btTypes.filter(b=>!histBT.some(h=>btMatch(b,h)));}
+    else{const estCov=isDup?Math.min(histBT.length,btCount):0;coveredTypes=Array(estCov).fill('~');newTypes=Array(Math.max(0,btCount-estCov)).fill('~');}
+    results.push({raw:rawVal,base,season,btCount,btTypes,btTypesKnown,isDup,histBT,histSeasons,coveredTypes,newTypes});
+  });
+  totalBT=results.reduce((s,r)=>s+r.btCount,0);
+  coveredBT=results.reduce((s,r)=>s+r.coveredTypes.length,0);
+  document.getElementById('cnt-total').textContent=results.length;
+  document.getElementById('cnt-bt-total').textContent=totalBT;
+  document.getElementById('cnt-new').textContent=results.filter(r=>!r.isDup).length;
+  document.getElementById('cnt-dup').textContent=results.filter(r=>r.isDup).length;
+  selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);
+  document.getElementById('result-area').style.display='block';
+  updateCalc();setFilter('all');
+  document.getElementById('result-area').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function updateCalc(){
+  if(!results.length)return;
+  const pct=Math.min(100,Math.max(1,parseFloat(document.getElementById('target-pct').value)||80));
+  const need=Math.ceil(totalBT*pct/100);const gap=Math.max(0,need-coveredBT);
+  const curPct=totalBT?(coveredBT/totalBT*100):0;
+  const selBT=results.filter(r=>selectedStyles.has(r.base)).reduce((s,r)=>s+(selectedBTs[r.base]?.size||0),0);
+  const selPct=totalBT?(selBT/totalBT*100):0;
+  document.getElementById('calc-need').textContent=need;document.getElementById('calc-covered').textContent=coveredBT;document.getElementById('calc-gap').textContent=gap;document.getElementById('calc-sel').textContent=selBT||'—';
+  const covW=Math.min(curPct,pct);const selExtra=Math.min(selPct,Math.max(0,pct-curPct));const tgtGap=Math.max(0,pct-curPct-selExtra);
+  document.getElementById('bar-cov').style.width=covW+'%';document.getElementById('bar-sel').style.width=selExtra+'%';document.getElementById('bar-tgt').style.width=tgtGap+'%';
+  document.getElementById('bar-cov-lbl').textContent=`歷史涵蓋 ${curPct.toFixed(1)}%`;document.getElementById('bar-tgt-lbl').textContent=`目標 ${pct}%`;document.getElementById('bar-sel-lbl').textContent=selectedStyles.size?`已選 ${selPct.toFixed(1)}%`:'';
+  const note=document.getElementById('calc-note');
+  if(gap===0){note.className='calc-note ok';note.textContent=` 歷史 C/O 款已足夠達成 ${pct}% 目標。`;}
+  else{note.className='calc-note warn';note.textContent=` 歷史涵蓋 ${coveredBT} 個 Body Type（${curPct.toFixed(1)}%），還需再製作 ${gap} 個 Body Type 才能達成 ${pct}% 目標。`;}
+}
+
+function initSelectedBTs(r){
+  const btSet=new Set(r.btTypesKnown?r.btTypes:r.btCount===1?['REG']:[]);
+  selectedBTs[r.base]=btSet;
+}
+function toggleStyle(base,checked){
+  const r=results.find(x=>x.base===base);
+  if(checked){selectedStyles.add(base);if(r)initSelectedBTs(r);}
+  else{selectedStyles.delete(base);delete selectedBTs[base];}
+  updateSelBar();updateCalc();renderTable();
+}
+function toggleBT(base,bt){
+  if(!selectedStyles.has(base))return;
+  if(!selectedBTs[base])selectedBTs[base]=new Set();
+  if(selectedBTs[base].has(bt))selectedBTs[base].delete(bt);
+  else selectedBTs[base].add(bt);
+  if(selectedBTs[base].size===0){selectedStyles.delete(base);delete selectedBTs[base];}
+  updateSelBar();updateCalc();renderTable();
+}
+function toggleAll(checked){
+  getFiltered().forEach(r=>{
+    if(checked){selectedStyles.add(r.base);initSelectedBTs(r);}
+    else{selectedStyles.delete(r.base);delete selectedBTs[r.base];}
+  });
+  renderTable();updateSelBar();updateCalc();
+}
+function clearSelection(){selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);document.getElementById('cb-all').checked=false;renderTable();updateSelBar();updateCalc();}
+
+// ── 從選款建立進度追蹤 ────────────────────────────────────
+function showCreateSeasonModal(){
+  const selRows=results.filter(r=>selectedStyles.has(r.base));
+  if(!selRows.length){alert('請先在表格中勾選要製作的款式');return;}
+  const selBT=selRows.reduce((s,r)=>s+r.btCount,0);
+  document.getElementById('modal-sel-count').textContent=selRows.length;
+  document.getElementById('modal-sel-bt').textContent=selBT;
+  // Pre-fill total BT with current season total if available
+  document.getElementById('modal-total-bt').value=totalBT||'';
+  // Try to guess season name from first result's season field
+  const guessedSeason=selRows[0]?.season||'';
+  document.getElementById('modal-season-name').value=guessedSeason;
+  const modal=document.getElementById('create-season-modal');
+  modal.style.display='flex';
+  setTimeout(()=>document.getElementById('modal-season-name').focus(),100);
+}
+
+function hideCreateSeasonModal(){
+  document.getElementById('create-season-modal').style.display='none';
+}
+
+function confirmCreateSeason(){
+  const name=document.getElementById('modal-season-name').value.trim().toUpperCase();
+  if(!name){alert('請輸入季別名稱');return;}
+  if(allSeasons[name]){if(!confirm(`${name} 已存在，確定要覆蓋？`))return;}
+  const inputBT=parseInt(document.getElementById('modal-total-bt').value);
+  const useTotalBT=(!isNaN(inputBT)&&inputBT>0)?inputBT:totalBT;
+
+  // Build styles from selected comparison results (using per-BT selection)
+  const styles=results.filter(r=>selectedStyles.has(r.base)).map(r=>{
+    const selBTArr=selectedBTs[r.base]?[...selectedBTs[r.base]]:(r.btTypesKnown?r.btTypes:(r.histBT.length?r.histBT:['REG']));
+    return{base:r.base,bt:selBTArr,btCount:selBTArr.length||r.btCount};
+  });
+
+  allSeasons[name]={name,totalBT:useTotalBT,styles,progress:{}};
+  styles.forEach(s=>{allSeasons[name].progress[s.base]={ordered:false,done:false,note:''};});
+  saveAllSeasons();
+  hideCreateSeasonModal();
+  currentSeasonKey=name;
+  switchTab('progress');
+  showToast(` 已建立 ${name} 進度追蹤（${styles.length} 款）`,'teal-t');
+}
+
+// Close modal on backdrop click
+document.addEventListener('click',function(e){
+  const modal=document.getElementById('create-season-modal');
+  if(e.target===modal) hideCreateSeasonModal();
+});
+function updateSelBar(){const selRows=results.filter(r=>selectedStyles.has(r.base));const selCount=selRows.length;const selBT=selRows.reduce((s,r)=>s+(selectedBTs[r.base]?.size||0),0);const selPct=totalBT?(selBT/totalBT*100).toFixed(1):0;const bar=document.getElementById('sel-bar');bar.classList.toggle('active',selCount>0);document.getElementById('sel-count').textContent=selCount;document.getElementById('sel-bt-count').textContent=selBT;document.getElementById('sel-pct-badge').textContent=`佔本季 ${selPct}%`;}
+
+function setFilter(f){currentFilter=f;['all','new','dup'].forEach(id=>document.getElementById('f-'+id).className='fbtn'+(f===id?` active-${id}`:''));renderTable();}
+function getFiltered(){const q=document.getElementById('search').value.trim().toUpperCase();let rows=results;if(currentFilter==='new')rows=rows.filter(r=>!r.isDup);if(currentFilter==='dup')rows=rows.filter(r=>r.isDup);if(q)rows=rows.filter(r=>r.base.includes(q)||r.raw.toUpperCase().includes(q)||r.season.toUpperCase().includes(q));return rows;}
+
+function renderBTTags(r){
+  const isSel=selectedStyles.has(r.base);
+  const selBTSet=selectedBTs[r.base]||new Set();
+  if(r.btTypesKnown){
+    return r.btTypes.map(t=>{
+      const isCov=r.coveredTypes.some(c=>btMatch(c,t));
+      if(isSel){
+        const active=selBTSet.has(t);
+        const cls=active?(isCov?'bt-sel-cov':'bt-sel-new'):'bt-desel';
+        const hint=active?(isCov?'已做過，可省工':'需製作'):'已排除（點擊重新加入）';
+        return`<span class="bt-tag ${cls}" onclick="toggleBT('${esc(r.base)}','${esc(t)}')" title="${hint}">${esc(t)}</span>`;
+      }
+      return`<span class="bt-tag ${isCov?'bt-cov':'bt-new'}">${esc(t)}</span>`;
+    }).join('');
+  }
+  if(r.btCount===1){
+    const isCov=r.isDup&&r.histBT.some(h=>btMatch('REG',h));
+    const cls=isSel?(selBTSet.has('REG')?(isCov?'bt-sel-cov':'bt-sel-new'):'bt-desel'):(isCov?'bt-cov':'bt-new');
+    const click=isSel?`onclick="toggleBT('${esc(r.base)}','REG')" `:'';
+    return`<span class="bt-tag ${cls}" ${click}>REG</span>`;
+  }
+  return`<span class="bt-tag bt-unk">×${r.btCount} Body Type（種類未知）</span>`;
+}
+function renderTable(){
+  const rows=getFiltered();const tbody=document.getElementById('tbody');
+  if(!rows.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">沒有符合條件的款式</td></tr>';document.getElementById('cb-all').checked=false;return;}
+  document.getElementById('cb-all').checked=rows.every(r=>selectedStyles.has(r.base))&&rows.length>0;
+  tbody.innerHTML=rows.map((r,i)=>{
+    const checked=selectedStyles.has(r.base);
+    const histBTDisplay=r.histBT.map(t=>`<span class="bt-tag bt-hist">${esc(t)}</span>`).join('');
+    return`<tr class="${checked?'selected-row':''}">
+      <td class="cb-col"><input type="checkbox" class="row-cb" ${checked?'checked':''} onchange="toggleStyle('${esc(r.base)}',this.checked)"></td>
+      <td style="color:var(--text3);font-size:11px">${i+1}</td>
+      <td class="style-no">${esc(r.raw)}</td>
+      <td style="color:var(--text2);font-size:12px">${esc(r.season)||dim('—')}</td>
+      <td>${r.isDup?'<span class="badge badge-dup">C/O</span>':'<span class="badge badge-new">未做過</span>'}</td>
+      <td>${renderBTTags(r)}</td>
+      <td>${histBTDisplay||dim('—')}</td>
+      <td style="color:var(--text2);font-size:11px">${r.histSeasons.join(', ')||dim('—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function buildExportData(rows, label){
+  const pct = parseFloat(document.getElementById('target-pct').value) || 80;
+  const need = Math.ceil(totalBT * pct / 100);
+  const summary = `${label}　　目標 ${pct}%　　需完成 Body Type：${need}　　歷史已涵蓋：${coveredBT}　　本季總 Body Type：${totalBT}`;
+  const dataRows = rows.map(r => {
+    const hist = historyMap[r.base];
+    const histBT = hist ? hist.bt : [];
+    const isDup = !!hist;
+    const btCount = r.btCount;
+    const btTypes = r.btTypesKnown ? r.btTypes.join(' + ') : (r.btCount > 1 ? '—' : 'REG');
+    return [r.raw, r.season, isDup ? 'C/O' : '未做過', btCount, btTypes, histBT.length ? histBT.join(' + ') : '—'];
+  });
+  return [
+    [summary, '', '', '', '', ''],
+    ['', '', '', '', '', ''],
+    ['款號', '本季季節', '狀態', 'Body Type 數量', 'Body Type 種類', '歷史已做 Body Type'],
+    ...dataRows
+  ];
+}
+
+function applyExportFormat(ws) {
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:5}}];
+  ws['!cols'] = [{wch:22},{wch:12},{wch:10},{wch:14},{wch:30},{wch:30}];
+}
+
+function exportAll(){
+  const rows = getFiltered();
+  const ws = XLSX.utils.aoa_to_sheet(buildExportData(rows, `全部（${rows.length}款）`));
+  applyExportFormat(ws);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '比對結果');
+  XLSX.writeFile(wb, '3D_final_sample_比對結果.xlsx');
+}
+
+function exportSelected(){
+  const rows = results.filter(r => selectedStyles.has(r.base));
+  if(!rows.length) return alert('尚未選取任何款式');
+  const ws = XLSX.utils.aoa_to_sheet(buildExportData(rows, `已選（${rows.length}款）`));
+  applyExportFormat(ws);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '已選款式');
+  XLSX.writeFile(wb, '3D_final_sample_已選款式.xlsx');
+}
+
+// ══ 初始化 ═══════════════════════════════════════════════
+loadAllSeasons();
+rebuildHistoryFromSeasons();
+</script>
+</body>
+</html>
