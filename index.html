@@ -132,7 +132,7 @@ td.style-no{font-weight:600;font-family:'Courier New',monospace;font-size:12.5px
 .season-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .season-pill.archived{background:var(--surface2);color:var(--text3)}
 .season-pill .done-mark{font-size:11px}
-.season-pill .del-x{font-size:11px;opacity:.5;margin-left:2px;line-height:1;padding:0 2px;border-radius:3px;transition:opacity .15s,background .15s}
+.season-pill .del-x{font-size:13px;font-weight:400;opacity:.45;margin-left:5px;line-height:1;padding:1px 4px;border-radius:3px;transition:opacity .15s,background .15s;display:inline-block}
 .season-pill .del-x:hover{opacity:1;background:rgba(0,0,0,.15)}
 .season-pill.active .del-x:hover{background:rgba(255,255,255,.25)}
 .btn-add-season{font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;border:.5px dashed var(--border2);background:none;color:var(--text2);cursor:pointer;white-space:nowrap}
@@ -489,7 +489,7 @@ function renderSeasonTabs(){
     const isActive=k===currentSeasonKey;
     return`<span class="season-pill${isActive?' active':''}${isComplete&&!isActive?' archived':''}" onclick="switchSeason('${k}')">
       ${isComplete?' ':''}<strong>${k}</strong>&nbsp;<span style="opacity:.7;font-size:11px">${doneStyles}/${totalStyles}</span>
-      <span class="del-x" onclick="event.stopPropagation();deleteSeason('${k}')" title="刪除此季別"></span>
+      <span class="del-x" onclick="event.stopPropagation();deleteSeason('${k}')" title="刪除此季別">&#215;</span>
     </span>`;
   }).join('');
 }
@@ -962,6 +962,10 @@ function exportSelected(){
   XLSX.utils.book_append_sheet(wb, ws, '已選款式');
   XLSX.writeFile(wb, '3D_final_sample_已選款式.xlsx');
 }
+
+// ── 防止瀏覽器預設開啟拖曳檔案 ─────────────────────────────
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { e.preventDefault(); });
 
 // ══ 初始化 ═══════════════════════════════════════════════
 loadAllSeasons();
