@@ -117,7 +117,10 @@ td.style-no{font-weight:600;font-family:'Courier New',monospace;font-size:12.5px
 .bt-tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;margin:1px 2px 1px 0;font-weight:500}
 .bt-cov{background:var(--blue-bg);color:var(--blue-text)}
 .bt-new{background:var(--navy-bg);color:var(--navy)}
-.bt-hist{background:var(--surface2);color:var(--text2)}
+.bt-hist{background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .15s}
+.bt-hist:hover{opacity:.7}
+.bt-excluded{background:var(--surface2);color:var(--text3);text-decoration:line-through;opacity:.45;cursor:pointer;transition:all .15s}
+.bt-excluded:hover{opacity:.7}
 .bt-unk{background:var(--surface2);color:var(--text3);font-style:italic}
 .empty-row td{text-align:center;color:var(--text3);padding:2.5rem}
 .update-section{margin-top:1.5rem;padding-top:1.25rem;border-top:.5px solid var(--border)}
@@ -525,9 +528,9 @@ function renderSeasonContent(){
   const totalStyles=season.styles.length;
   const doneSt=season.styles.filter(s=>season.progress[s.base]?.done);
   const ordSt=season.styles.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
-  const doneBT=doneSt.reduce((sum,s)=>sum+s.btCount,0);
-  const ordBT=ordSt.reduce((sum,s)=>sum+s.btCount,0);
-  const totalPlanBT=season.styles.reduce((sum,s)=>sum+s.btCount,0);
+  const doneBT=doneSt.reduce((sum,s)=>sum+getActiveBTCount(s),0);
+  const ordBT=ordSt.reduce((sum,s)=>sum+getActiveBTCount(s),0);
+  const totalPlanBT=season.styles.reduce((sum,s)=>sum+getActiveBTCount(s),0);
   const achievePct=season.totalBT?(doneBT/season.totalBT*100).toFixed(1):0;
   const isComplete=doneSt.length===totalStyles&&totalStyles>0;
   const doneW=season.totalBT?Math.min(doneBT/season.totalBT*100,100):0;
@@ -604,6 +607,31 @@ function getPFiltered(){
   return items;
 }
 
+// 取得某款目前被排除的 BT（存在 progress.excludedBT）
+function getExcludedBT(base){
+  const season=allSeasons[currentSeasonKey];
+  return new Set((season?.progress[base]?.excludedBT)||[]);
+}
+
+// 取得某款實際有效 BT 數量
+function getActiveBTCount(s){
+  const excl=getExcludedBT(s.base);
+  return s.bt.filter(b=>!excl.has(b)).length || 1;
+}
+
+function toggleProgressBT(base, bt){
+  const season=allSeasons[currentSeasonKey];if(!season)return;
+  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:'',excludedBT:[]};
+  if(!season.progress[base].excludedBT) season.progress[base].excludedBT=[];
+  const arr=season.progress[base].excludedBT;
+  const idx=arr.indexOf(bt);
+  if(idx>=0) arr.splice(idx,1);  // 恢復
+  else arr.push(bt);              // 排除
+  saveAllSeasons();
+  renderProgressTable();
+  renderSeasonContent();  // 更新進度統計
+}
+
 function renderProgressTable(){
   const season=allSeasons[currentSeasonKey];
   if(!season)return;
@@ -612,14 +640,19 @@ function renderProgressTable(){
   if(!tbody)return;
   if(!items.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">沒有符合條件的款式</td></tr>';return;}
   tbody.innerHTML=items.map((s,i)=>{
-    const st=season.progress[s.base]||{ordered:false,done:false,note:''};
-    const btTags=s.bt.map(b=>`<span class="bt-tag bt-hist">${esc(b)}</span>`).join('');
+    const st=season.progress[s.base]||{ordered:false,done:false,note:'',excludedBT:[]};
+    const excl=new Set(st.excludedBT||[]);
+    const activeCnt=s.bt.filter(b=>!excl.has(b)).length||1;
+    const btTags=s.bt.map(b=>{
+      const isExcl=excl.has(b);
+      return`<span class="bt-tag ${isExcl?'bt-excluded':'bt-hist'}" onclick="toggleProgressBT('${esc(s.base)}','${esc(b)}')" title="${isExcl?'點擊恢復':'點擊排除'}">${esc(b)}</span>`;
+    }).join('');
     const rowCls=st.done?'p-done':'';
     return`<tr class="${rowCls}">
       <td style="color:var(--text3);font-size:11px">${i+1}</td>
       <td class="style-no">${esc(s.base)}</td>
       <td>${btTags}</td>
-      <td style="text-align:center;font-weight:600;color:var(--text2)">${s.btCount}</td>
+      <td style="text-align:center;font-weight:600;color:var(--text2)">${activeCnt}<span style="color:var(--text3);font-weight:400;font-size:11px">/${s.btCount}</span></td>
       <td style="text-align:center"><input type="checkbox" class="p-cb blue-cb" ${st.ordered?'checked':''} onchange="onOrderedChange('${esc(s.base)}',this.checked)"></td>
       <td style="text-align:center"><input type="checkbox" class="p-cb" ${st.done?'checked':''} onchange="onDoneToggle('${esc(s.base)}',this.checked)"></td>
       <td><input class="note-input" type="text" value="${esc(st.note||'')}" placeholder="備註…" onchange="onNoteChange('${esc(s.base)}',this.value)"></td>
@@ -655,8 +688,13 @@ function onNoteChange(base,val){
 
 function exportProgress(){
   const season=allSeasons[currentSeasonKey];if(!season)return;
-  const data=[['款號','Body Types','Body Type 數','已進單','已完成','備註'],
-    ...season.styles.map(s=>{const st=season.progress[s.base]||{};return[s.base,s.bt.join('+'),s.btCount,st.ordered?'':'',st.done?'':'',st.note||''];})];
+  const data=[['款號','Body Type 種類','Body Type 數量','已進單','已完成','備註'],
+    ...season.styles.map(s=>{
+      const st=season.progress[s.base]||{};
+      const excl=new Set(st.excludedBT||[]);
+      const activeBT=s.bt.filter(b=>!excl.has(b));
+      return[s.base, activeBT.join(' + '), activeBT.length, st.ordered?'V':'', st.done?'V':'', st.note||''];
+    })];
   const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:16},{wch:24},{wch:8},{wch:8},{wch:8},{wch:24}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentSeasonKey+'進度');
   XLSX.writeFile(wb,`3D_${currentSeasonKey}_進度.xlsx`);
@@ -739,11 +777,9 @@ document.getElementById('file-season').addEventListener('change',function(){
     fillSel(document.getElementById('s-bt-types'),hdrs,/^body\s*type$|^body_type$/i,true);
     document.getElementById('col-setup-area').style.display='block';
     document.getElementById('btn-compare').disabled=false;
-    checkBTWarn();
   });
 });
-document.getElementById('s-bt-types').addEventListener('change',checkBTWarn);
-function checkBTWarn(){document.getElementById('bt-warn').style.display=document.getElementById('s-bt-types').value?'none':'block';}
+
 
 document.getElementById('btn-compare').addEventListener('click',runCompare);
 function runCompare(){
