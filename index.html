@@ -175,6 +175,8 @@ td.style-no{font-weight:600;font-family:'Courier New',monospace;font-size:12.5px
 
 /* Toggle */
 input:checked + input:checked + .note-input{font-size:12px;border:none;background:transparent;color:var(--text2);outline:none;width:100%;min-width:80px}
+.upload-loading{font-size:12px;color:var(--text2);margin-top:6px;display:none}
+.upload-loading.show{display:block}
 .p-cb{width:18px;height:18px;cursor:pointer;accent-color:var(--blue);flex-shrink:0}
 .p-cb.blue-cb{accent-color:var(--blue-dark)}
 .note-input:focus{background:var(--surface2);border-radius:4px;padding:0 4px}
@@ -370,7 +372,31 @@ function btMatch(a,b){a=a.toUpperCase().trim();b=b.toUpperCase().trim();if(a===b
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function dim(s){return`<span style="color:var(--text3)">${s}</span>`}
 function showToast(msg,type='teal-t'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.className='toast',2500)}
-function readExcel(file,cb){const r=new FileReader();r.onload=e=>{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];cb(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));};r.readAsArrayBuffer(file);}
+function readExcel(file, cb, loadingId) {
+  const loading = loadingId ? document.getElementById(loadingId) : null;
+  if(loading) loading.classList.add('show');
+  const r = new FileReader();
+  r.onload = e => {
+    // 讓瀏覽器先完成 UI 更新再做重的運算
+    setTimeout(() => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', sheetStubs:false, cellStyles:false});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+        if(loading) loading.classList.remove('show');
+        cb(rows);
+      } catch(err) {
+        if(loading) loading.classList.remove('show');
+        alert('讀取 Excel 失敗，請確認格式正確（.xlsx / .xls / .csv）\n\n' + err.message);
+      }
+    }, 50);
+  };
+  r.onerror = () => {
+    if(loading) loading.classList.remove('show');
+    alert('無法讀取檔案，請重試');
+  };
+  r.readAsArrayBuffer(file);
+}
 function getHeaders(rows){return(rows[0]||[]).map((h,i)=>({label:String(h||`欄${i+1}`),value:String(i)}))}
 function fillSel(sel,hdrs,guessReg,opt){sel.innerHTML=opt?'<option value="">—</option>':'';hdrs.forEach(h=>{const o=document.createElement('option');o.value=h.value;o.textContent=h.label;sel.appendChild(o);});const gi=hdrs.findIndex(h=>guessReg.test(h.label));if(gi>=0)sel.value=String(gi)}
 
@@ -1000,10 +1026,47 @@ function exportSelected(){
 }
 
 // ── 防止瀏覽器預設開啟拖曳檔案 ─────────────────────────────
+// Prevent browser from opening dragged files
 document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop', e => { e.preventDefault(); });
+document.addEventListener('drop', e => e.preventDefault());
+
+// Handle file drop on upload zone
+function handleFileDrop(e, type) {
+  e.preventDefault(); e.stopPropagation();
+  const box = document.getElementById('box-' + type);
+  if(box) box.classList.remove('drag-over');
+  const file = e.dataTransfer?.files?.[0];
+  if(!file) return;
+  if(type === 'season') {
+    document.getElementById('fname-season').textContent = file.name;
+    document.getElementById('box-season').classList.add('done');
+    readExcel(file, rows => {
+      seasonData = rows;
+      const hdrs = getHeaders(rows);
+      fillSel(document.getElementById('s-style'), hdrs, /style|款號|編號|item/i, false);
+      fillSel(document.getElementById('s-season'), hdrs, /^season$|季節|季別/i, true);
+      fillSel(document.getElementById('s-bt-count'), hdrs, /body.*type.*qty|body.*type.*\(qty\)|bt.*qty/i, true);
+      fillSel(document.getElementById('s-bt-types'), hdrs, /^body\s*type$|^body_type$/i, true);
+      document.getElementById('col-setup-area').style.display = 'block';
+      document.getElementById('btn-compare').disabled = false;
+    }, 'upload-loading');
+  }
+}
 
 // ══ 初始化 ═══════════════════════════════════════════════
+// Highlight upload box when dragging anywhere on page
+document.addEventListener('dragenter', () => {
+  const box = document.getElementById('box-season');
+  const tab = document.getElementById('tab-compare');
+  if(box && tab && tab.classList.contains('active')) box.classList.add('drag-over');
+});
+document.addEventListener('dragleave', e => {
+  if(!e.relatedTarget || e.relatedTarget === document.documentElement) {
+    const box = document.getElementById('box-season');
+    if(box) box.classList.remove('drag-over');
+  }
+});
+
 loadAllSeasons();
 rebuildHistoryFromSeasons();
 </script>
