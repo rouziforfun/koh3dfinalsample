@@ -375,27 +375,60 @@ function showToast(msg,type='teal-t'){const t=document.getElementById('toast');t
 function readExcel(file, cb, loadingId) {
   const loading = loadingId ? document.getElementById(loadingId) : null;
   if(loading) loading.classList.add('show');
-  const r = new FileReader();
-  r.onload = e => {
-    // 讓瀏覽器先完成 UI 更新再做重的運算
-    setTimeout(() => {
-      try {
-        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', sheetStubs:false, cellStyles:false});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
-        if(loading) loading.classList.remove('show');
-        cb(rows);
-      } catch(err) {
-        if(loading) loading.classList.remove('show');
-        alert('讀取 Excel 失敗，請確認格式正確（.xlsx / .xls / .csv）\n\n' + err.message);
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const buf = e.target.result;
+    // 用 Web Worker 在背景執行緒解析，主畫面不凍結
+    const code = `
+      self.onmessage = function(ev) {
+        try {
+          // 動態載入 XLSX（inline worker 不能用 importScripts 指向主頁的 script tag）
+          // 改用全域 XLSX（由主頁 script 標籤載入，worker 透過 importScripts 取得）
+          importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+          var wb = XLSX.read(new Uint8Array(ev.data), {type:'array', cellStyles:false, sheetStubs:false, WTF:false, sheetRows:2000});
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+          self.postMessage({ok:true, rows:rows});
+        } catch(err) {
+          self.postMessage({ok:false, msg:err.message});
+        }
+      };
+    `;
+    const blob = new Blob([code], {type:'application/javascript'});
+    const url  = URL.createObjectURL(blob);
+    const worker = new Worker(url);
+
+    worker.onmessage = ev => {
+      URL.revokeObjectURL(url);
+      worker.terminate();
+      if(loading) loading.classList.remove('show');
+      if(ev.data.ok) {
+        cb(ev.data.rows);
+      } else {
+        alert('讀取 Excel 失敗：' + ev.data.msg + '\n\n請確認檔案為 .xlsx / .xls / .csv');
       }
-    }, 50);
+    };
+    worker.onerror = err => {
+      URL.revokeObjectURL(url);
+      worker.terminate();
+      if(loading) loading.classList.remove('show');
+      // Worker 失敗則退回主執行緒解析（相容性保底）
+      try {
+        const wb = XLSX.read(new Uint8Array(buf), {type:'array', cellStyles:false, sheetRows:2000});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        cb(XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false}));
+      } catch(e2) {
+        alert('無法讀取檔案，請重試');
+      }
+    };
+    worker.postMessage(buf, [buf]);
   };
-  r.onerror = () => {
+  reader.onerror = () => {
     if(loading) loading.classList.remove('show');
     alert('無法讀取檔案，請重試');
   };
-  r.readAsArrayBuffer(file);
+  reader.readAsArrayBuffer(file);
 }
 function getHeaders(rows){return(rows[0]||[]).map((h,i)=>({label:String(h||`欄${i+1}`),value:String(i)}))}
 function fillSel(sel,hdrs,guessReg,opt){sel.innerHTML=opt?'<option value="">—</option>':'';hdrs.forEach(h=>{const o=document.createElement('option');o.value=h.value;o.textContent=h.label;sel.appendChild(o);});const gi=hdrs.findIndex(h=>guessReg.test(h.label));if(gi>=0)sel.value=String(gi)}
