@@ -1219,16 +1219,36 @@ function buildExportData(rows, label){
   const pct = parseFloat(document.getElementById('target-pct').value) || 80;
   const need = Math.ceil(totalBT * pct / 100);
 
-  // 季別：優先用已儲存的 session 名稱，其次從資料欄偵測
+  // 季別
   const seasonName = currentCompSeason || rows.find(r => r.season)?.season || '';
 
-  // 計算已選 Body Type 數
-  const selBTCount = rows.reduce((s, r) => {
-    const sel = selectedBTs[r.base];
-    return s + (sel ? sel.size : r.btCount);
-  }, 0);
+  // 已選 Body Type 數：永遠從 results 的實際已選計算（不依賴 export 範圍）
+  const selBTCount = results
+    .filter(r => selectedStyles.has(r.base))
+    .reduce((s, r) => {
+      const sel = selectedBTs[r.base];
+      return s + (sel ? sel.size : r.btCount);
+    }, 0);
 
-  // 摘要列（全部合併成一列，label+數字放同格）
+  // 資料列每行使用「實際選用的 BT」
+  const makeRow = r => {
+    const hist = historyMap[r.base];
+    const histBT = hist ? hist.bt : [];
+    const isDup = !!hist;
+    // 實際選用 BT（考慮 per-BT 排除）
+    const selSet = selectedBTs[r.base];
+    const activeBTs = r.btTypesKnown
+      ? (selSet ? r.btTypes.filter(b => selSet.has(b)) : r.btTypes)
+      : null;
+    const activeBTCount = activeBTs ? activeBTs.length : (selSet ? selSet.size : r.btCount);
+    const btTypes = activeBTs ? activeBTs.join(' + ') : (r.btCount > 1 ? '—' : 'REG');
+    return { isDup, data: [r.raw, isDup ? 'C/O' : '未做過', activeBTCount, btTypes, histBT.length ? deduplicateBT(histBT).join(' + ') : '—'] };
+  };
+
+  const made = rows.map(makeRow);
+  const notDone = made.filter(r => !r.isDup).map(r => r.data);
+  const co      = made.filter(r =>  r.isDup).map(r => r.data);
+
   const summary = [
     seasonName ? `季別：${seasonName}　　` : '',
     `本季總 Body Type：${totalBT}　　`,
@@ -1236,18 +1256,6 @@ function buildExportData(rows, label){
     `已選 Body Type：${selBTCount}　　`,
     `歷史已涵蓋：${coveredBT}`
   ].join('');
-
-  // 資料列：未做過先，C/O 後
-  const makeRow = r => {
-    const hist = historyMap[r.base];
-    const histBT = hist ? hist.bt : [];
-    const isDup = !!hist;
-    const btTypes = r.btTypesKnown ? r.btTypes.join(' + ') : (r.btCount > 1 ? '—' : 'REG');
-    return { isDup, data: [r.raw, isDup ? 'C/O' : '未做過', r.btCount, btTypes, histBT.length ? deduplicateBT(histBT).join(' + ') : '—'] };
-  };
-  const made = rows.map(makeRow);
-  const notDone = made.filter(r => !r.isDup).map(r => r.data);
-  const co      = made.filter(r =>  r.isDup).map(r => r.data);
 
   return [
     [summary, '', '', '', ''],
