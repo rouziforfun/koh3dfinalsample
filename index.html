@@ -395,7 +395,17 @@ tr.p-done:hover td{background:var(--blue-bg)}
 function baseStyle(s){return String(s||'').trim().split('\n')[0].replace(/\+PO.*/i,'').replace(/_[A-Z]{2}\d{2}$/i,'').replace(/\s*\(.*\)$/,'').trim().toUpperCase()}
 function isValidStyleNum(s){return /^[A-Z]{2,}\d/i.test(s.trim())}
 function parseBTTypes(val){if(!val)return[];return String(val).split(/[\n+,\/\\]/).map(s=>s.trim().toUpperCase()).filter(s=>s.length>0)}
-function btMatch(a,b){a=a.toUpperCase().trim();b=b.toUpperCase().trim();if(a===b)return true;if(a.startsWith(b)||b.startsWith(a))return true;const syns=[['REG','REGULAR','REGULAR FIT'],['PLUS','PLUS SIZE'],['PETITE','PETITE FIT'],['B&T','BIG & TALL','BIG AND TALL','TALL'],['ADP','ADAPTIVE']];for(const g of syns){if(g.some(x=>a.startsWith(x)||x.startsWith(a))&&g.some(x=>b.startsWith(x)||x.startsWith(b)))return true}return false}
+function btMatch(a,b){a=a.toUpperCase().trim();b=b.toUpperCase().trim();if(a===b)return true;if(a.startsWith(b)||b.startsWith(a))return true;const syns=[['REG','REGULAR','REGULAR FIT'],['PLUS','PLUS SIZE','B&T','BIG & TALL','BIG AND TALL','TALL'],['PETITE','PETITE FIT'],['ADP','ADAPTIVE']];for(const g of syns){if(g.some(x=>a.startsWith(x)||x.startsWith(a))&&g.some(x=>b.startsWith(x)||x.startsWith(b)))return true}return false}
+// 大尺碼去重（PLUS / B&T 只顯示一個）
+function deduplicateBT(arr){
+  let hadLarge = false;
+  return arr.filter(b => {
+    const isLarge = /^(PLUS|B&T|BIG)/i.test(b);
+    if(isLarge){ if(hadLarge) return false; hadLarge=true; }
+    return true;
+  });
+}
+
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function dim(s){return`<span style="color:var(--text3)">${s}</span>`}
 function showToast(msg,type='teal-t'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.className='toast',2500)}
@@ -627,7 +637,7 @@ let historyMap=JSON.parse(JSON.stringify(HISTORY_RAW));
 
 // ══ FA26 預設款式清單 ═════════════════════════════════════
 const FA26_PLAN=[
-{base:"ET33A401",bt:["REG","HUSKY"],btCount:2},{base:"MT03A111",bt:["REG","PLUS"],btCount:2},
+{base:"ET33A401",bt:["REG"],btCount:1},{base:"MT03A111",bt:["REG","PLUS"],btCount:2},
 {base:"WT6FA124",bt:["PLUS","REG"],btCount:2},{base:"WT5FA257",bt:["REG","PLUS"],btCount:2},
 {base:"MS6SK325",bt:["REG"],btCount:1},{base:"WT23A502",bt:["PLUS","PETITE","REG"],btCount:3},
 {base:"WT24A511",bt:["PLUS","REG"],btCount:2},{base:"WT41A506",bt:["REG","PETITE","PLUS"],btCount:3},
@@ -1169,7 +1179,7 @@ function renderTable(){
   document.getElementById('cb-all').checked=rows.every(r=>selectedStyles.has(r.base))&&rows.length>0;
   tbody.innerHTML=rows.map((r,i)=>{
     const checked=selectedStyles.has(r.base);
-    const histBTDisplay=r.histBT.map(t=>`<span class="bt-tag bt-hist">${esc(t)}</span>`).join('');
+    const histBTDisplay=deduplicateBT(r.histBT).map(t=>`<span class="bt-tag bt-hist">${esc(t)}</span>`).join('');
     return`<tr class="${checked?'selected-row':''}">
       <td class="cb-col"><input type="checkbox" class="row-cb" ${checked?'checked':''} onchange="toggleStyle('${esc(r.base)}',this.checked)"></td>
       <td style="color:var(--text3);font-size:11px">${i+1}</td>
@@ -1211,7 +1221,7 @@ function buildExportData(rows, label){
     const histBT = hist ? hist.bt : [];
     const isDup = !!hist;
     const btTypes = r.btTypesKnown ? r.btTypes.join(' + ') : (r.btCount > 1 ? '—' : 'REG');
-    return { isDup, data: [r.raw, isDup ? 'C/O' : '未做過', r.btCount, btTypes, histBT.length ? histBT.join(' + ') : '—'] };
+    return { isDup, data: [r.raw, isDup ? 'C/O' : '未做過', r.btCount, btTypes, histBT.length ? deduplicateBT(histBT).join(' + ') : '—'] };
   };
   const made = rows.map(makeRow);
   const notDone = made.filter(r => !r.isDup).map(r => r.data);
