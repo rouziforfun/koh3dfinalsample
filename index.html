@@ -175,6 +175,19 @@ td.style-no{font-weight:600;font-family:'Courier New',monospace;font-size:12.5px
 
 /* Toggle */
 input:checked + input:checked + .note-input{font-size:12px;border:none;background:transparent;color:var(--text2);outline:none;width:100%;min-width:80px}
+.comp-bar{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:.75rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.comp-pill{font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.comp-pill:hover{border-color:var(--blue);color:var(--blue)}
+.comp-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.comp-pill .cpx{font-size:13px;opacity:.55;margin-left:3px;padding:0 2px;border-radius:3px}
+.comp-pill .cpx:hover{opacity:1;background:rgba(0,0,0,.15)}
+.comp-pill.active .cpx:hover{background:rgba(255,255,255,.2)}
+.btn-new-comp{font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;border:.5px dashed var(--border2);background:none;color:var(--text2);cursor:pointer;white-space:nowrap}
+.btn-new-comp:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
+.comp-save-bar{background:var(--blue-pale);border:.5px solid var(--blue-mid);border-radius:10px;padding:.6rem 1rem;margin-bottom:1rem;display:none;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.comp-save-bar.show{display:flex}
+.comp-name-input{font-size:13px;font-weight:600;padding:5px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none;min-width:120px}
+.comp-name-input:focus{border-color:var(--blue)}
 .upload-loading{font-size:12px;color:var(--text2);margin-top:6px;display:none}
 .upload-loading.show{display:block}
 .p-cb{width:18px;height:18px;cursor:pointer;accent-color:var(--blue);flex-shrink:0}
@@ -208,7 +221,21 @@ tr.p-done:hover td{background:var(--blue-bg)}
 
 <!-- ══ TAB 1: 款式比對 ══════════════════════════════════ -->
 <div id="tab-compare" class="tab-content active">
-    <label class="upload-box" id="box-season"
+    <!-- 比對季別切換列 -->
+  <div class="comp-bar" id="comp-bar" style="display:none">
+    <div id="comp-tabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+    <button class="btn-new-comp" onclick="startNewComp()">+ 新比對</button>
+  </div>
+
+  <!-- 儲存比對 bar -->
+  <div class="comp-save-bar" id="comp-save-bar">
+    <span style="color:var(--blue-text)">比對完成，儲存為：</span>
+    <input type="text" class="comp-name-input" id="comp-name-input" placeholder="季別名稱，例：SP27" maxlength="20">
+    <button class="btn-sm teal" onclick="saveCompSession()">儲存</button>
+    <button class="btn-sm" onclick="document.getElementById('comp-save-bar').classList.remove('show')">略過</button>
+  </div>
+
+  <label class="upload-box" id="box-season"
     ondragover="event.preventDefault();document.getElementById('box-season').classList.add('drag-over')"
     ondragleave="document.getElementById('box-season').classList.remove('drag-over')"
     ondrop="handleFileDrop(event,'season')">
@@ -434,6 +461,139 @@ function getHeaders(rows){return(rows[0]||[]).map((h,i)=>({label:String(h||`欄$
 function fillSel(sel,hdrs,guessReg,opt){sel.innerHTML=opt?'<option value="">—</option>':'';hdrs.forEach(h=>{const o=document.createElement('option');o.value=h.value;o.textContent=h.label;sel.appendChild(o);});const gi=hdrs.findIndex(h=>guessReg.test(h.label));if(gi>=0)sel.value=String(gi)}
 
 // ══ 歷史資料 ═════════════════════════════════════════════
+// ── 比對 Session 儲存 ─────────────────────────────────────
+const COMP_KEY = '3d_comp_v1';
+let compSessions = {};    // {seasonName: {rawStyles, selectedStyles, selectedBTs, totalBT}}
+let currentCompSeason = null;
+
+function loadCompSessions(){
+  try{ const d=localStorage.getItem(COMP_KEY); if(d) compSessions=JSON.parse(d); }catch(e){}
+}
+
+function saveCompSessions(){
+  try{ localStorage.setItem(COMP_KEY, JSON.stringify(compSessions)); }catch(e){}
+}
+
+function renderCompTabs(){
+  const keys = Object.keys(compSessions);
+  const bar = document.getElementById('comp-bar');
+  if(keys.length === 0){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  document.getElementById('comp-tabs').innerHTML = keys.map(k => `
+    <span class="comp-pill${k===currentCompSeason?' active':''}" onclick="switchCompSession('${k}')">
+      <strong>${k}</strong>
+      <span class="cpx" onclick="event.stopPropagation();deleteCompSession('${k}')" title="刪除此比對">&#215;</span>
+    </span>`).join('');
+}
+
+function saveCompSession(){
+  const name = document.getElementById('comp-name-input').value.trim().toUpperCase();
+  if(!name){ alert('請輸入季別名稱'); return; }
+  // Store only essential data (not re-derivable history info)
+  compSessions[name] = {
+    name,
+    rawStyles: results.map(r => ({raw:r.raw, base:r.base, season:r.season, btCount:r.btCount, btTypes:r.btTypes, btTypesKnown:r.btTypesKnown})),
+    selectedStyles: [...selectedStyles],
+    selectedBTs: Object.fromEntries(Object.entries(selectedBTs).map(([k,v])=>[k,[...v]])),
+    totalBT
+  };
+  saveCompSessions();
+  currentCompSeason = name;
+  syncSelectionsToProgress(name);
+  renderCompTabs();
+  document.getElementById('comp-save-bar').classList.remove('show');
+  showToast(`已儲存比對：${name}`, 'teal-t');
+}
+
+function switchCompSession(name){
+  const s = compSessions[name];
+  if(!s) return;
+  // Restore results (re-compute history matching from current historyMap)
+  results = s.rawStyles.map(r => {
+    const hist = historyMap[r.base];
+    const isDup = !!hist;
+    const histBT = hist ? hist.bt : [];
+    const histSeasons = hist ? hist.s : [];
+    const coveredTypes = r.btTypesKnown ? r.btTypes.filter(b => histBT.some(h=>btMatch(b,h))) : [];
+    const newTypes = r.btTypesKnown ? r.btTypes.filter(b => !histBT.some(h=>btMatch(b,h))) : [];
+    return {...r, isDup, histBT, histSeasons, coveredTypes, newTypes};
+  });
+  // Restore selections
+  selectedStyles.clear();
+  s.selectedStyles.forEach(x => selectedStyles.add(x));
+  Object.keys(selectedBTs).forEach(k => delete selectedBTs[k]);
+  Object.entries(s.selectedBTs).forEach(([k,v]) => selectedBTs[k] = new Set(v));
+  totalBT = s.totalBT;
+  coveredBT = results.reduce((sum,r) => sum + r.coveredTypes.length, 0);
+  currentCompSeason = name;
+  // Update UI
+  document.getElementById('cnt-total').textContent = results.length;
+  document.getElementById('cnt-bt-total').textContent = totalBT;
+  document.getElementById('cnt-new').textContent = results.filter(r=>!r.isDup).length;
+  document.getElementById('cnt-dup').textContent = results.filter(r=>r.isDup).length;
+  document.getElementById('result-area').style.display = 'block';
+  document.getElementById('col-setup-area').style.display = 'none';
+  document.getElementById('box-season').classList.remove('done');
+  document.getElementById('fname-season').textContent = '';
+  document.getElementById('btn-compare').disabled = true;
+  updateCalc(); setFilter('all'); renderCompTabs();
+}
+
+function startNewComp(){
+  currentCompSeason = null;
+  results = []; selectedStyles.clear();
+  Object.keys(selectedBTs).forEach(k => delete selectedBTs[k]);
+  document.getElementById('result-area').style.display = 'none';
+  document.getElementById('col-setup-area').style.display = 'none';
+  document.getElementById('box-season').classList.remove('done');
+  document.getElementById('fname-season').textContent = '';
+  document.getElementById('btn-compare').disabled = true;
+  document.getElementById('comp-save-bar').classList.remove('show');
+  renderCompTabs();
+}
+
+function deleteCompSession(name){
+  if(!confirm(`確定要刪除「${name}」的比對紀錄？\n（進度追蹤資料不受影響）`)) return;
+  delete compSessions[name];
+  saveCompSessions();
+  if(currentCompSeason === name){
+    currentCompSeason = null;
+    results = [];
+    document.getElementById('result-area').style.display = 'none';
+  }
+  renderCompTabs();
+}
+
+// 選款變動後同步至進度追蹤
+function syncSelectionsToProgress(seasonName){
+  if(!seasonName) return;
+  const selRows = results.filter(r => selectedStyles.has(r.base));
+  const styles = selRows.map(r => {
+    const sel = selectedBTs[r.base];
+    const bt = r.btTypesKnown
+      ? [...(sel || new Set(r.btTypes))]
+      : (r.histBT.length ? r.histBT : ['REG']);
+    return {base: r.base, bt, btCount: sel?.size || r.btCount};
+  });
+  if(!allSeasons[seasonName]){
+    allSeasons[seasonName] = {name:seasonName, totalBT, styles:[], progress:{}};
+  }
+  allSeasons[seasonName].styles = styles;
+  allSeasons[seasonName].totalBT = totalBT;
+  // Init progress for new styles
+  styles.forEach(s => {
+    if(!allSeasons[seasonName].progress[s.base])
+      allSeasons[seasonName].progress[s.base] = {ordered:false, done:false, note:'', excludedBT:[]};
+  });
+  saveAllSeasons();
+  // Also update comp session
+  if(compSessions[seasonName]){
+    compSessions[seasonName].selectedStyles = [...selectedStyles];
+    compSessions[seasonName].selectedBTs = Object.fromEntries(Object.entries(selectedBTs).map(([k,v])=>[k,[...v]]));
+    saveCompSessions();
+  }
+}
+
 const HISTORY_RAW={
 "DX5FA000":{s:["FA25"],bt:["REG"]},"ET33A401":{s:["SP26"],bt:["REG"]},
 "EX5FV403":{s:["FA25"],bt:["REG"]},"MA5FK304":{s:["FA25"],bt:["REG"]},
@@ -872,6 +1032,12 @@ function runCompare(){
   selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);
   document.getElementById('result-area').style.display='block';
   updateCalc();setFilter('all');
+  // 自動偵測季別名稱
+  const detectedSeason = results.find(r=>r.season)?.season?.replace(/[^A-Z0-9]/gi,'').toUpperCase() || '';
+  document.getElementById('comp-name-input').value = detectedSeason;
+  document.getElementById('comp-save-bar').classList.add('show');
+  currentCompSeason = null;  // 新比對尚未儲存
+  renderCompTabs();
   document.getElementById('result-area').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -900,6 +1066,7 @@ function toggleStyle(base,checked){
   if(checked){selectedStyles.add(base);if(r)initSelectedBTs(r);}
   else{selectedStyles.delete(base);delete selectedBTs[base];}
   updateSelBar();updateCalc();renderTable();
+  if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);
 }
 function toggleBT(base,bt){
   if(!selectedStyles.has(base))return;
@@ -908,6 +1075,7 @@ function toggleBT(base,bt){
   else selectedBTs[base].add(bt);
   if(selectedBTs[base].size===0){selectedStyles.delete(base);delete selectedBTs[base];}
   updateSelBar();updateCalc();renderTable();
+  if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);
 }
 function toggleAll(checked){
   getFiltered().forEach(r=>{
@@ -915,8 +1083,9 @@ function toggleAll(checked){
     else{selectedStyles.delete(r.base);delete selectedBTs[r.base];}
   });
   renderTable();updateSelBar();updateCalc();
+  if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);
 }
-function clearSelection(){selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);document.getElementById('cb-all').checked=false;renderTable();updateSelBar();updateCalc();}
+function clearSelection(){selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);document.getElementById('cb-all').checked=false;renderTable();updateSelBar();updateCalc();if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);}
 
 // ── 從選款建立進度追蹤 ────────────────────────────────────
 function showCreateSeasonModal(){
@@ -1017,31 +1186,55 @@ function renderTable(){
 function buildExportData(rows, label){
   const pct = parseFloat(document.getElementById('target-pct').value) || 80;
   const need = Math.ceil(totalBT * pct / 100);
-  const summary = `${label}　　目標 ${pct}%　　需完成 Body Type：${need}　　歷史已涵蓋：${coveredBT}　　本季總 Body Type：${totalBT}`;
-  const dataRows = rows.map(r => {
+
+  // 季別：優先用已儲存的 session 名稱，其次從資料欄偵測
+  const seasonName = currentCompSeason || rows.find(r => r.season)?.season || '';
+
+  // 計算已選 Body Type 數
+  const selBTCount = rows.reduce((s, r) => {
+    const sel = selectedBTs[r.base];
+    return s + (sel ? sel.size : r.btCount);
+  }, 0);
+
+  // 摘要列（全部合併成一列，label+數字放同格）
+  const summary = [
+    seasonName ? `季別：${seasonName}　　` : '',
+    `本季總 Body Type：${totalBT}　　`,
+    `目標 ${pct}% → 需完成 Body Type：${need}　　`,
+    `已選 Body Type：${selBTCount}　　`,
+    `歷史已涵蓋：${coveredBT}`
+  ].join('');
+
+  // 資料列：未做過先，C/O 後
+  const makeRow = r => {
     const hist = historyMap[r.base];
     const histBT = hist ? hist.bt : [];
     const isDup = !!hist;
-    const btCount = r.btCount;
     const btTypes = r.btTypesKnown ? r.btTypes.join(' + ') : (r.btCount > 1 ? '—' : 'REG');
-    return [r.raw, r.season, isDup ? 'C/O' : '未做過', btCount, btTypes, histBT.length ? histBT.join(' + ') : '—'];
-  });
+    return { isDup, data: [r.raw, isDup ? 'C/O' : '未做過', r.btCount, btTypes, histBT.length ? histBT.join(' + ') : '—'] };
+  };
+  const made = rows.map(makeRow);
+  const notDone = made.filter(r => !r.isDup).map(r => r.data);
+  const co      = made.filter(r =>  r.isDup).map(r => r.data);
+
   return [
-    [summary, '', '', '', '', ''],
-    ['', '', '', '', '', ''],
-    ['款號', '本季季節', '狀態', 'Body Type 數量', 'Body Type 種類', '歷史已做 Body Type'],
-    ...dataRows
+    [summary, '', '', '', ''],
+    ['', '', '', '', ''],
+    ['款號', '狀態', 'Body Type 數量', 'Body Type 種類', '歷史已做 Body Type'],
+    ...notDone,
+    ...co
   ];
 }
 
 function applyExportFormat(ws) {
-  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:5}}];
-  ws['!cols'] = [{wch:22},{wch:12},{wch:10},{wch:14},{wch:30},{wch:30}];
+  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:4}}];  // 摘要列合併 A-E
+  ws['!cols'] = [{wch:24},{wch:10},{wch:14},{wch:32},{wch:32}];
 }
 
 function exportAll(){
   const rows = getFiltered();
-  const ws = XLSX.utils.aoa_to_sheet(buildExportData(rows, `全部（${rows.length}款）`));
+  const data = buildExportData(rows, `全部（${rows.length}款）`);
+  const ws = XLSX.utils.aoa_to_sheet(data);
   applyExportFormat(ws);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '比對結果');
@@ -1051,7 +1244,8 @@ function exportAll(){
 function exportSelected(){
   const rows = results.filter(r => selectedStyles.has(r.base));
   if(!rows.length) return alert('尚未選取任何款式');
-  const ws = XLSX.utils.aoa_to_sheet(buildExportData(rows, `已選（${rows.length}款）`));
+  const data = buildExportData(rows, `已選（${rows.length}款）`);
+  const ws = XLSX.utils.aoa_to_sheet(data);
   applyExportFormat(ws);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '已選款式');
@@ -1102,6 +1296,8 @@ document.addEventListener('dragleave', e => {
 
 loadAllSeasons();
 rebuildHistoryFromSeasons();
+loadCompSessions();
+renderCompTabs();
 </script>
 </body>
 </html>
