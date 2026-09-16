@@ -275,7 +275,7 @@ tr.p-done:hover td{background:var(--blue-bg)}
     <div class="calc-panel">
       
       <div class="calc-row">
-        <div class="calc-input-wrap"><label>本季目標</label><input type="number" class="target-input" id="target-pct" value="80" min="1" max="100" oninput="updateCalc()"><label>%</label></div>
+        <div class="calc-input-wrap"><label>本季目標</label><input type="number" class="target-input" id="target-pct" value="80" min="1" max="100" oninput="updateCalc();saveCurrentTargetPct()"><label>%</label></div>
         <div class="cdivider"></div>
         <div class="cmetric need"><div class="cval" id="calc-need">—</div><div class="clbl">需完成</div></div>
         <div class="cdivider"></div>
@@ -322,6 +322,7 @@ tr.p-done:hover td{background:var(--blue-bg)}
       <button class="fbtn" id="f-dup" onclick="setFilter('dup')">只看 C/O</button>
       <input class="search-input" type="text" id="search" placeholder="搜尋款號…" oninput="renderTable()">
       <button class="btn-sm" onclick="exportAll()">匯出全部</button>
+      <button class="btn-sm" id="btn-export-sel" onclick="exportSelected()" style="display:none">匯出已選款</button>
     </div>
     <div class="table-wrap">
       <table>
@@ -505,7 +506,8 @@ function saveCompSession(){
     rawStyles: results.map(r => ({raw:r.raw, base:r.base, season:r.season, btCount:r.btCount, btTypes:r.btTypes, btTypesKnown:r.btTypesKnown})),
     selectedStyles: [...selectedStyles],
     selectedBTs: Object.fromEntries(Object.entries(selectedBTs).map(([k,v])=>[k,[...v]])),
-    totalBT
+    totalBT,
+    targetPct: parseFloat(document.getElementById('target-pct').value) || 80
   };
   saveCompSessions();
   currentCompSeason = name;
@@ -546,6 +548,7 @@ function switchCompSession(name){
   document.getElementById('box-season').classList.remove('done');
   document.getElementById('fname-season').textContent = '';
   document.getElementById('btn-compare').disabled = true;
+  if(s.targetPct) document.getElementById('target-pct').value = s.targetPct;
   updateCalc(); setFilter('all'); renderCompTabs();
 }
 
@@ -1051,6 +1054,12 @@ function runCompare(){
   document.getElementById('result-area').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+function saveCurrentTargetPct(){
+  if(!currentCompSeason) return;
+  const s = compSessions[currentCompSeason];
+  if(s){ s.targetPct = parseFloat(document.getElementById('target-pct').value)||80; saveCompSessions(); }
+}
+
 function updateCalc(){
   if(!results.length)return;
   const pct=Math.min(100,Math.max(1,parseFloat(document.getElementById('target-pct').value)||80));
@@ -1145,7 +1154,20 @@ document.addEventListener('click',function(e){
   const modal=document.getElementById('create-season-modal');
   if(e.target===modal) hideCreateSeasonModal();
 });
-function updateSelBar(){const selRows=results.filter(r=>selectedStyles.has(r.base));const selCount=selRows.length;const selBT=selRows.reduce((s,r)=>s+(selectedBTs[r.base]?.size||0),0);const selPct=totalBT?(selBT/totalBT*100).toFixed(1):0;const bar=document.getElementById('sel-bar');bar.classList.toggle('active',selCount>0);document.getElementById('sel-count').textContent=selCount;document.getElementById('sel-bt-count').textContent=selBT;document.getElementById('sel-pct-badge').textContent=`佔本季 ${selPct}%`;}
+function updateSelBar(){
+  const selRows=results.filter(r=>selectedStyles.has(r.base));
+  const selCount=selRows.length;
+  const selBT=selRows.reduce((s,r)=>s+(selectedBTs[r.base]?.size||0),0);
+  const selPct=totalBT?(selBT/totalBT*100).toFixed(1):0;
+  const bar=document.getElementById('sel-bar');
+  bar.classList.toggle('active',selCount>0);
+  document.getElementById('sel-count').textContent=selCount;
+  document.getElementById('sel-bt-count').textContent=selBT;
+  document.getElementById('sel-pct-badge').textContent=`佔本季 ${selPct}%`;
+  // 常駐匯出按鈕
+  const btnSel=document.getElementById('btn-export-sel');
+  if(btnSel) btnSel.style.display=selCount>0?'':'none';
+}
 
 function setFilter(f){currentFilter=f;['all','new','dup'].forEach(id=>document.getElementById('f-'+id).className='fbtn'+(f===id?` active-${id}`:''));renderTable();}
 function getFiltered(){const q=document.getElementById('search').value.trim().toUpperCase();let rows=results;if(currentFilter==='new')rows=rows.filter(r=>!r.isDup);if(currentFilter==='dup')rows=rows.filter(r=>r.isDup);if(q)rows=rows.filter(r=>r.base.includes(q)||r.raw.toUpperCase().includes(q)||r.season.toUpperCase().includes(q));return rows;}
