@@ -687,6 +687,17 @@ function loadAllSeasons(){
     allSeasons['FA26'].styles=FA26_PLAN; // always use latest FA26 plan
     allSeasons['FA26'].totalBT=115;
   }
+  // ── Migration：重新解析舊版 bt 陣列（如 ["REG & PLUS"] → ["REG","PLUS"]）
+  Object.values(allSeasons).forEach(season=>{
+    if(season.styles) season.styles.forEach(s=>{
+      if(Array.isArray(s.bt) && s.bt.length > 0){
+        const reparsed = s.bt.flatMap(b => parseBTTypes(b));
+        s.bt = [...new Set(reparsed)];
+        s.btCount = s.bt.length || s.btCount;
+      }
+    });
+  });
+
   // Init missing progress entries
   Object.values(allSeasons).forEach(season=>{
     if(!season.progress) season.progress={};
