@@ -395,7 +395,16 @@ tr.p-done:hover td{background:var(--blue-bg)}
 // ══ 工具函式 ═════════════════════════════════════════════
 function baseStyle(s){return String(s||'').trim().split('\n')[0].replace(/\+PO.*/i,'').replace(/_[A-Z]{2}\d{2}$/i,'').replace(/\s*\(.*\)$/,'').trim().toUpperCase()}
 function isValidStyleNum(s){return /^[A-Z]{2,}\d/i.test(s.trim())}
-function parseBTTypes(val){if(!val)return[];return String(val).split(/[\n+,\/\\]/).map(s=>s.trim().toUpperCase()).filter(s=>s.length>0)}
+function parseBTTypes(val){
+  if(!val) return [];
+  // 先保護 B&T / BIG & TALL，再以 & 或其他分隔符切割，最後還原
+  const src = String(val)
+    .replace(/BIG\s*&\s*TALL/gi, '__BIGT__')
+    .replace(/B\s*&\s*T/gi, '__BT__');
+  return src.split(/[\n+,\/\\]|\s*&\s*/)
+    .map(s => s.replace(/__BIGT__/g,'B&T').replace(/__BT__/g,'B&T').trim().toUpperCase())
+    .filter(s => s.length > 0);
+}
 function btMatch(a,b){a=a.toUpperCase().trim();b=b.toUpperCase().trim();if(a===b)return true;if(a.startsWith(b)||b.startsWith(a))return true;const syns=[['REG','REGULAR','REGULAR FIT'],['PLUS','PLUS SIZE','B&T','BIG & TALL','BIG AND TALL','TALL'],['PETITE','PETITE FIT'],['ADP','ADAPTIVE']];for(const g of syns){if(g.some(x=>a.startsWith(x)||x.startsWith(a))&&g.some(x=>b.startsWith(x)||x.startsWith(b)))return true}return false}
 // 大尺碼去重（PLUS / B&T 只顯示一個）
 function deduplicateBT(arr){
