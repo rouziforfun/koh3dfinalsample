@@ -1,1363 +1,921 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>3D Final Sample 工具</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<title>圖片批次重新命名工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#f5f5f5;--surface:#ffffff;--surface2:#eeeeee;
-  --border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16);
-  --text:#1a1a1a;--text2:#666666;--text3:#aaaaaa;
-  --blue:#333333;--blue-bg:#e8e8e8;--blue-text:#111111;
-  --blue-dark:#222222;--blue-mid:#888888;--blue-pale:#f0f0f0;
-  --slate:#888888;--slate-bg:#eeeeee;--slate-text:#444444;
-  --navy:#1a1a1a;--navy-bg:#e0e0e0;
-}
-body{font-family:'Helvetica Neue',Arial,'PingFang TC','Microsoft JhengHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
-header{background:var(--surface);border-bottom:.5px solid var(--border);padding:.85rem 2rem;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30}
-.dot{width:9px;height:9px;background:var(--blue);border-radius:50%;flex-shrink:0}
-header h1{font-size:15px;font-weight:600;letter-spacing:-.02em}
-header h1 span{display:none}
-.hist-badge{margin-left:auto;font-size:12px;background:var(--blue-bg);color:var(--blue-text);border-radius:20px;padding:3px 12px;font-weight:500;white-space:nowrap}
-.tab-bar{background:var(--surface);border-bottom:.5px solid var(--border);display:flex;position:sticky;top:49px;z-index:25;padding:0 2rem}
-.tab-btn{font-size:13px;font-weight:500;padding:.6rem 1.2rem;border:none;background:none;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
-.tab-btn:hover{color:var(--text)}
-.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
-main{max-width:960px;margin:0 auto;padding:1.75rem 1.5rem 5rem}
-.tab-content{display:none}.tab-content.active{display:block}
-.slabel{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:.5rem}
-.info-bar{border-radius:10px;padding:.65rem 1rem;margin-bottom:1.25rem;font-size:13px;display:flex;align-items:flex-start;gap:8px}
-.info-bar.teal{background:var(--blue-bg);border:.5px solid var(--blue);color:var(--blue-text)}
-.info-bar.blue{background:var(--blue-pale);border:.5px solid var(--blue-mid);color:var(--blue-text)}
-.upload-box{background:var(--surface);border:.5px solid var(--border2);border-radius:12px;padding:1.25rem;cursor:pointer;display:block;margin-bottom:1.25rem;transition:background .15s,border-color .15s}
-.upload-box:hover{background:var(--surface2);border-color:var(--blue)}
-.upload-box.done{border-color:var(--blue)}
-.upload-box input{display:none}
-.upload-inner{display:flex;align-items:center;gap:14px}
-.upload-icon{width:40px;height:40px;flex-shrink:0;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center}
-.upload-icon svg{width:20px;height:20px;stroke:var(--text2)}
-.upload-box.done .upload-icon{background:var(--blue-bg)}
-.upload-box.done .upload-icon svg{stroke:var(--blue)}
-.upload-box.drag-over{border-color:var(--blue);background:var(--blue-bg)}
-.bt-tag.bt-sel-cov{background:var(--blue-bg);color:var(--blue-text);outline:2px solid var(--blue);outline-offset:1px;cursor:pointer}
-.bt-tag.bt-sel-new{background:var(--navy-bg);color:var(--navy);outline:2px solid var(--navy);outline-offset:1px;cursor:pointer}
-.bt-tag.bt-desel{background:var(--surface2);color:var(--text3);text-decoration:line-through;cursor:pointer;opacity:.5}
-.bt-tag.bt-cov{cursor:pointer}.bt-tag.bt-new{cursor:pointer}
-.upload-fname{font-size:12px;color:var(--blue);margin-top:4px;font-weight:500;word-break:break-all}
-.col-panel{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
-.col-panel-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:.5px solid var(--border)}
-.col-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-.col-row:last-child{margin-bottom:0}
-.col-lbl{font-size:12px;color:var(--text2);min-width:120px}
-.col-tag{font-size:10px;color:var(--text3);margin-left:4px}
-.col-row select{flex:1;font-size:13px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none;cursor:pointer}
-.col-row select:focus{border-color:var(--blue)}
-.tip{font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:.5rem .75rem;margin-bottom:.85rem}
-.tip.warn{background:var(--navy-bg);color:var(--navy)}
-.btn-primary{width:100%;padding:.7rem;font-size:14px;font-weight:600;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer;margin-bottom:1.75rem;transition:opacity .15s}
-.btn-primary:hover:not(:disabled){opacity:.88}
-.btn-primary:disabled{opacity:.35;cursor:default}
-.btn-sm{font-size:12px;padding:4px 12px;border-radius:6px;border:.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;font-weight:500;white-space:nowrap;transition:background .15s}
-.btn-sm:hover{background:var(--surface2)}
-.btn-sm.blue{background:var(--blue);color:#fff;border-color:var(--blue)}
-.btn-sm.blue:hover{opacity:.88}
-.btn-sm.teal{background:var(--blue);color:#fff;border-color:var(--blue)}
-.btn-sm.teal:hover{opacity:.88}
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
-.stat-card{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:.8rem 1rem}
-.stat-num{font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1}
-.stat-lbl{font-size:11px;color:var(--text2);margin-top:4px}
-.green{color:var(--blue)}.purple{color:var(--slate)}.orange{color:var(--navy)}.blue-c{color:var(--blue-dark)}
-.calc-panel{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:1.25rem}
-.calc-title{font-size:13px;font-weight:600;margin-bottom:.6rem}
-.calc-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:.75rem}
-.calc-input-wrap{display:flex;align-items:center;gap:6px}
-.calc-input-wrap label{font-size:13px;color:var(--text2);white-space:nowrap}
-.target-input{width:72px;font-size:16px;font-weight:600;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none;text-align:center}
-.target-input:focus{border-color:var(--blue)}
-.cdivider{width:.5px;height:32px;background:var(--border2)}
-.cmetric{text-align:center;min-width:70px}
-.cmetric .cval{font-size:20px;font-weight:700;letter-spacing:-.02em}
-.cmetric .clbl{font-size:11px;color:var(--text2);margin-top:2px}
-.need .cval{color:var(--navy)}.covered .cval{color:var(--blue)}.gap .cval{color:var(--slate)}
-.calc-bar{height:8px;background:var(--surface2);border-radius:20px;overflow:hidden;display:flex;gap:2px}
-.bar-c{border-radius:20px;transition:width .4s;min-width:0}
-.calc-note{font-size:12px;color:var(--text2);margin-top:.5rem}
-.calc-note.ok{color:var(--blue)}.calc-note.warn{color:var(--navy)}
-.sel-bar{background:var(--blue-pale);border:.5px solid var(--blue-mid);border-radius:10px;padding:.65rem 1rem;margin-bottom:.85rem;display:none;align-items:center;gap:10px;flex-wrap:wrap}
-.sel-bar.active{display:flex}
-.sel-info{font-size:13px;color:var(--blue-text);flex:1}
-.sel-info strong{font-weight:600}
-.sel-pct-badge{font-size:12px;background:var(--blue);color:#fff;border-radius:20px;padding:2px 10px;font-weight:600}
-.filter-row{display:flex;gap:8px;margin-bottom:.85rem;align-items:center;flex-wrap:wrap}
-.fbtn{font-size:12px;padding:4px 14px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-weight:500}
-.fbtn:hover{background:var(--surface2)}
-.fbtn.active-all{background:var(--surface2);color:var(--text)}
-.fbtn.active-new{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-text)}
-.fbtn.active-dup{background:var(--slate-bg);border-color:var(--slate);color:var(--slate-text)}
-.search-input{flex:1;min-width:140px;font-size:13px;padding:5px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none}
-.search-input:focus{border-color:var(--blue)}
-.table-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.5rem}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{background:var(--surface2);padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.04em;text-transform:uppercase;border-bottom:.5px solid var(--border)}
-th.cb-col,td.cb-col{text-align:center;width:36px}
-td{padding:8px 10px;border-bottom:.5px solid var(--border);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr.selected-row td{background:var(--blue-pale)}
-tr:hover td{background:var(--surface2)}
-tr.selected-row:hover td{background:var(--blue-bg)}
-.row-cb{width:16px;height:16px;cursor:pointer;accent-color:var(--blue)}
-td.style-no{font-weight:600;font-family:'Courier New',monospace;font-size:12.5px}
-.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600}
-.badge-new{background:var(--blue-bg);color:var(--blue-text)}
-.badge-dup{background:var(--slate-bg);color:var(--slate-text)}
-.bt-tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;margin:1px 2px 1px 0;font-weight:500}
-.bt-cov{background:var(--blue-bg);color:var(--blue-text)}
-.bt-new{background:var(--navy-bg);color:var(--navy)}
-.bt-hist{background:var(--surface2);color:var(--text2);cursor:pointer;transition:all .15s}
-.bt-hist:hover{opacity:.7}
-.bt-excluded{background:var(--surface2);color:var(--text3);text-decoration:line-through;opacity:.45;cursor:pointer;transition:all .15s}
-.bt-excluded:hover{opacity:.7}
-.bt-unk{background:var(--surface2);color:var(--text3);font-style:italic}
-.empty-row td{text-align:center;color:var(--text3);padding:2.5rem}
-.update-section{margin-top:1.5rem;padding-top:1.25rem;border-top:.5px solid var(--border)}
-.update-btn{font-size:12px;padding:5px 14px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text2);cursor:pointer;font-weight:500}
+  :root {
+    --bg: #f7f6f2;
+    --panel: #ffffff;
+    --border: #e0dbcd;
+    --border-strong: #c9c2ae;
+    --text: #23211c;
+    --text-muted: #83796a;
+    --accent: #b1382a;
+    --accent-hover: #94301f;
+    --accent-soft: #f7ebe8;
+    --success: #4a7a5c;
+    --success-soft: #eef3ee;
+    --warn-soft: #faf7ee;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    padding: 28px 20px 60px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 1040px; margin: 0 auto; }
 
-/* ── Progress tracker ─────────────────── */
-/* Season switcher */
-.season-switcher{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.season-tabs-wrap{display:flex;gap:6px;flex-wrap:wrap;flex:1}
-.season-pill{font-size:12px;font-weight:500;padding:4px 14px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s}
-.season-pill:hover{border-color:var(--blue);color:var(--blue)}
-.season-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-.season-pill.archived{background:var(--surface2);color:var(--text3)}
-.season-pill .done-mark{font-size:11px}
-.season-pill .del-x{font-size:13px;font-weight:400;opacity:.45;margin-left:5px;line-height:1;padding:1px 4px;border-radius:3px;transition:opacity .15s,background .15s;display:inline-block}
-.season-pill .del-x:hover{opacity:1;background:rgba(0,0,0,.15)}
-.season-pill.active .del-x:hover{background:rgba(255,255,255,.25)}
-.btn-add-season{font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;border:.5px dashed var(--border2);background:none;color:var(--text2);cursor:pointer;white-space:nowrap}
-.btn-add-season:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
+  .eyebrow {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 6px;
+  }
+  h1 { font-size: 23px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 18px; }
 
-/* Add season form */
-.add-season-form{background:var(--surface);border:.5px solid var(--blue);border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:1.25rem}
-.add-season-title{font-size:14px;font-weight:600;margin-bottom:.85rem;color:var(--blue-text)}
-.form-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.form-lbl{font-size:12px;color:var(--text2);min-width:90px}
-.form-input{flex:1;font-size:13px;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none}
-.form-input:focus{border-color:var(--blue)}
-.form-actions{display:flex;gap:8px;margin-top:.85rem}
+  .badge-safe {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1.5px solid var(--success); color: var(--success);
+    padding: 6px 14px; font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.05em; text-transform: uppercase; border-radius: 3px;
+    transform: rotate(-1deg);
+    margin-bottom: 26px;
+    background: var(--success-soft);
+  }
 
-/* Progress stats */
-.p-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.25rem}
-.p-stat{background:var(--surface);border:.5px solid var(--border);border-radius:10px;padding:.85rem 1rem}
-.p-stat .pval{font-size:22px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
-.p-stat .plbl{font-size:11px;color:var(--text2);margin-top:3px}
-.p-stat .psub{font-size:11px;color:var(--text3);margin-top:2px}
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 22px;
+    margin-bottom: 16px;
+  }
+  .panel h2 {
+    font-size: 13.5px; font-weight: 700; margin: 0 0 16px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--text); color: var(--panel);
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    flex-shrink: 0;
+  }
 
-/* Progress bar */
-.pbar-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem}
-.pbar-header{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px}
-.pbar{height:10px;background:var(--surface2);border-radius:20px;overflow:hidden;display:flex;gap:2px}
-.pbar-legend{display:flex;gap:14px;margin-top:6px;flex-wrap:wrap}
-.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
-.legend-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+  #dropZone {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: 6px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+    color: var(--text-muted);
+  }
+  #dropZone:hover, #dropZone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  #dropZone .icon { font-size: 26px; margin-bottom: 8px; }
+  #dropZone .main-line { font-size: 14px; color: var(--text); margin-bottom: 4px; }
+  #dropZone .hint-line { font-size: 12px; }
+  #fileInput { display: none; }
 
-/* Filter */
-.pfbtn{font-size:12px;padding:4px 14px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;font-weight:500}
-.pfbtn:hover{background:var(--surface2)}
-.pfbtn.pf-active{background:var(--surface2);color:var(--text)}
-.pfbtn.pf-ordered{background:var(--blue-pale);border-color:var(--blue-mid);color:var(--blue-text)}
-.pfbtn.pf-done{background:var(--blue-bg);border-color:var(--blue);color:var(--blue-text)}
-.pfbtn.pf-pending{background:var(--navy-bg);border-color:var(--navy);color:var(--navy)}
+  .mode-tabs { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+  .mode-tab {
+    padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 500;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .mode-tab.active { background: var(--text); border-color: var(--text); color: var(--panel); }
 
-/* Toggle */
-input:checked + input:checked + .note-input{font-size:12px;border:none;background:transparent;color:var(--text2);outline:none;width:100%;min-width:80px}
-.comp-bar{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:.75rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.comp-pill{font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px;border:.5px solid var(--border2);background:var(--surface2);color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
-.comp-pill:hover{border-color:var(--blue);color:var(--blue)}
-.comp-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
-.comp-pill .cpx{font-size:13px;opacity:.55;margin-left:3px;padding:0 2px;border-radius:3px}
-.comp-pill .cpx:hover{opacity:1;background:rgba(0,0,0,.15)}
-.comp-pill.active .cpx:hover{background:rgba(255,255,255,.2)}
-.btn-new-comp{font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px;border:.5px dashed var(--border2);background:none;color:var(--text2);cursor:pointer;white-space:nowrap}
-.btn-new-comp:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
-.comp-save-bar{background:var(--blue-pale);border:.5px solid var(--blue-mid);border-radius:10px;padding:.6rem 1rem;margin-bottom:1rem;display:none;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
-.comp-save-bar.show{display:flex}
-.comp-name-input{font-size:13px;font-weight:600;padding:5px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none;min-width:120px}
-.comp-name-input:focus{border-color:var(--blue)}
-.upload-loading{font-size:12px;color:var(--text2);margin-top:6px;display:none}
-.upload-loading.show{display:block}
-.p-cb{width:18px;height:18px;cursor:pointer;accent-color:var(--blue);flex-shrink:0}
-.p-cb.blue-cb{accent-color:var(--blue-dark)}
-.note-input:focus{background:var(--surface2);border-radius:4px;padding:0 4px}
-.note-input::placeholder{color:var(--text3)}
-tr.p-done td{background:var(--blue-pale)}
-tr.p-done:hover td{background:var(--blue-bg)}
+  .field-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .field-row:last-of-type { margin-bottom: 4px; }
+  .field { flex: 1; min-width: 110px; }
+  .field.grow-2 { flex: 2; min-width: 220px; }
+  .field label { display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 5px; font-weight: 500; }
+  .field input[type="text"], .field input[type="number"], .field select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 5px;
+    font-size: 13px; font-family: var(--mono); background: var(--bg); color: var(--text);
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); background: var(--panel); }
 
-/* Archived banner */
-.archived-banner{background:var(--blue-bg);border:.5px solid var(--blue);border-radius:10px;padding:.65rem 1rem;margin-bottom:1.25rem;font-size:13px;color:var(--blue-text);display:flex;align-items:center;gap:8px}
+  .hint { font-size: 12px; color: var(--text-muted); margin-top: 12px; line-height: 1.7; }
+  .hint code {
+    background: var(--bg); border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px;
+    font-family: var(--mono); font-size: 11.5px; color: var(--text);
+  }
+  .hint.warn-text { color: var(--accent); font-weight: 500; }
 
-/* Toast */
-.toast{position:fixed;bottom:24px;right:24px;background:#1a1a18;color:#fff;padding:.6rem 1.1rem;border-radius:8px;font-size:13px;z-index:100;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
-.toast.show{opacity:1;transform:translateY(0)}
-.toast.teal-t{background:var(--blue)}
-.toast.red-t{background:#c0392b}
+  .mode-panel { display: none; }
+  .mode-panel.active { display: block; }
+
+  .checkbox-field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; padding-bottom: 9px; }
+  .checkbox-field input { width: auto; }
+
+  .group-section-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-muted); margin-bottom: 8px;
+  }
+  .group-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .group-row:last-child { border-bottom: none; }
+  .group-raw { font-family: var(--mono); font-size: 11px; color: var(--text-muted); flex: 1; word-break: break-all; }
+  .group-arrow { color: var(--text-muted); font-size: 13px; flex-shrink: 0; }
+  .group-value-input {
+    width: 190px; flex-shrink: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px;
+    font-family: var(--mono); font-size: 12.5px; background: var(--bg); color: var(--text);
+  }
+  .group-value-input:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+  .group-value-input.style-base-input { width: 100px; flex: 1 1 auto; min-width: 80px; }
+  .size-type-select {
+    width: 190px; flex-shrink: 0; padding: 7px 9px; border: 1px solid var(--border); border-radius: 5px;
+    font-family: var(--mono); font-size: 12px; background: var(--bg); color: var(--text);
+  }
+  .size-type-select:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 10px; color: var(--text-muted); font-weight: 600;
+    font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
+    border-bottom: 1.5px solid var(--border-strong);
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr.duplicate { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  tr.unparsed { background: var(--warn-soft); box-shadow: inset 3px 0 0 var(--text-muted); }
+  tr:last-child td { border-bottom: none; }
+  .view-col { display: none; }
+  table.mode-auto .view-col { display: table-cell; }
+
+  .thumb-wrap { width: 40px; height: 40px; position: relative; flex-shrink: 0; }
+  .thumb {
+    width: 40px; height: 40px; object-fit: cover; border-radius: 5px;
+    border: 1px solid var(--border); display: block; background: var(--bg);
+  }
+  .thumb-fallback {
+    width: 40px; height: 40px; border-radius: 5px; border: 1px solid var(--border);
+    background: var(--bg); align-items: center; justify-content: center; font-size: 15px;
+    display: none;
+  }
+  .idx-cell { color: var(--text-muted); font-family: var(--mono); font-size: 12px; }
+  .original-name { color: var(--text-muted); font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
+  .new-name-input {
+    width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: 5px;
+    font-family: var(--mono); font-size: 12.5px; background: transparent; color: var(--text);
+  }
+  .new-name-input:hover { border-color: var(--border); }
+  .new-name-input:focus { outline: none; border-color: var(--accent); background: var(--panel); }
+  .view-select {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px;
+    font-family: var(--mono); font-size: 12px; background: var(--panel); color: var(--text);
+  }
+  .view-select:focus { outline: none; border-color: var(--accent); }
+  .status-ok { color: var(--success); font-size: 12px; }
+  .status-dup { color: var(--accent); font-size: 12px; font-weight: 600; }
+  .status-warn { color: var(--text-muted); font-size: 11.5px; font-weight: 600; }
+  .row-actions { white-space: nowrap; }
+  .row-actions button {
+    border: none; background: none; cursor: pointer; color: var(--text-muted);
+    padding: 3px 6px; border-radius: 4px; font-size: 13px;
+  }
+  .row-actions button:hover { background: var(--bg); color: var(--text); }
+
+  .btn {
+    padding: 9px 16px; border-radius: 5px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--text); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: white; padding: 10px 20px; font-weight: 600; }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:disabled:hover { border-color: var(--border); background: var(--panel); }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;}
+  .stats { font-size: 12.5px; color: var(--text-muted); font-family: var(--mono); }
+  .subtoolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .actions-bar { display: flex; align-items: center; gap: 14px; justify-content: flex-end; margin-top: 20px; flex-wrap: wrap; }
+
+  .empty-state {
+    text-align: center; padding: 34px; color: var(--text-muted); font-size: 13px;
+    border: 1px dashed var(--border); border-radius: 6px;
+  }
+  #progress { font-size: 12.5px; color: var(--accent); font-family: var(--mono); }
+
+  @media (max-width: 640px) {
+    .original-name, th:nth-child(3) { display: none; }
+    .field-row { flex-direction: column; }
+    .group-value-input { width: 130px; }
+    .group-value-input.style-base-input { width: 90px; }
+    .size-type-select { width: 150px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <div class="dot"></div>
-  <h1>3D Final Sample 工具<span>比對 & 進度管理</span></h1>
-  <div class="hist-badge" id="hist-badge">歷史：FA25 / SP26 / SU26 · 54 款</div>
-</header>
-<div class="tab-bar">
-  <button class="tab-btn active" id="tab-btn-compare" onclick="switchTab('compare')"> 款式比對</button>
-  <button class="tab-btn" id="tab-btn-progress" onclick="switchTab('progress')"> 當季進度</button>
-</div>
-<main>
+<div class="container">
+  <div class="eyebrow">批次處理工具</div>
+  <h1>圖片重新命名</h1>
+  <div class="subtitle">依照客戶規格批次重新命名圖片檔案</div>
+  <div class="badge-safe">✓ Lossless · 僅改檔名，不重新編碼，畫質 100% 保留</div>
 
-<!-- ══ TAB 1: 款式比對 ══════════════════════════════════ -->
-<div id="tab-compare" class="tab-content active">
-    <!-- 比對季別切換列 -->
-  <div class="comp-bar" id="comp-bar" style="display:none">
-    <div id="comp-tabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
-    <button class="btn-new-comp" onclick="startNewComp()">+ 新比對</button>
+  <div class="panel">
+    <h2><span class="step-num">1</span>上傳圖片</h2>
+    <div id="dropZone">
+      <div class="icon">📥</div>
+      <div class="main-line">拖曳圖片到這裡，或點擊選擇檔案</div>
+      <div class="hint-line">支援 JPG、PNG、GIF、WebP、HEIC 等常見圖片格式，可一次選取多張</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept="image/*">
   </div>
 
-  <!-- 儲存比對 bar -->
-  <div class="comp-save-bar" id="comp-save-bar">
-    <span style="color:var(--blue-text)">比對完成，儲存為：</span>
-    <input type="text" class="comp-name-input" id="comp-name-input" placeholder="季別名稱，例：SP27" maxlength="20">
-    <button class="btn-sm teal" onclick="saveCompSession()">儲存</button>
-    <button class="btn-sm" onclick="document.getElementById('comp-save-bar').classList.remove('show')">略過</button>
-  </div>
-
-  <label class="upload-box" id="box-season"
-    ondragover="event.preventDefault();document.getElementById('box-season').classList.add('drag-over')"
-    ondragleave="document.getElementById('box-season').classList.remove('drag-over')"
-    ondrop="handleFileDrop(event,'season')">
-    <input type="file" accept=".xlsx,.xls,.csv" id="file-season">
-    <div class="upload-inner">
-      <div><div style="font-size:13px;font-weight:600;margin-bottom:2px">拖曳或點擊上傳 Excel</div><div style="font-size:12px;color:var(--text2)">支援 .xlsx / .xls / .csv</div><div class="upload-fname" id="fname-season"></div></div>
-    </div>
-  </label>
-  <div id="col-setup-area" style="display:none;margin-bottom:1.25rem">
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">款號</div>
-        <select id="s-style" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"></select>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">季節代碼</div>
-        <select id="s-season" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"><option value="">—</option></select>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">Body Type 數量</div>
-        <select id="s-bt-count" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"><option value="">—</option></select>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px">Body Type</div>
-        <select id="s-bt-types" style="width:100%;font-size:12px;padding:5px 8px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);outline:none"><option value="">—</option></select>
-      </div>
-    </div>
-  </div>
-  <button class="btn-primary" id="btn-compare" disabled>開始比對</button>
-  <div id="result-area" style="display:none">
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-num" id="cnt-total">0</div><div class="stat-lbl">本季總款數</div></div>
-      <div class="stat-card"><div class="stat-num orange" id="cnt-bt-total">0</div><div class="stat-lbl">總 Body Type 數</div></div>
-      <div class="stat-card"><div class="stat-num green" id="cnt-new">0</div><div class="stat-lbl">未做過</div></div>
-      <div class="stat-card"><div class="stat-num purple" id="cnt-dup">0</div><div class="stat-lbl">C/O</div></div>
-    </div>
-    <div class="calc-panel">
-      
-      <div class="calc-row">
-        <div class="calc-input-wrap"><label>本季目標</label><input type="number" class="target-input" id="target-pct" value="80" min="1" max="100" oninput="updateCalc();saveCurrentTargetPct()"><label>%</label></div>
-        <div class="cdivider"></div>
-        <div class="cmetric need"><div class="cval" id="calc-need">—</div><div class="clbl">需完成</div></div>
-        <div class="cdivider"></div>
-        <div class="cmetric covered"><div class="cval" id="calc-covered">—</div><div class="clbl">歷史涵蓋</div></div>
-        <div class="cdivider"></div>
-        <div class="cmetric gap"><div class="cval" id="calc-gap">—</div><div class="clbl">還需製作</div></div>
-        <div class="cdivider"></div>
-        <div class="cmetric"><div class="cval" id="calc-sel" style="color:var(--blue)">—</div><div class="clbl">已選 Body Type</div></div>
-      </div>
-      <div class="calc-bar"><div class="bar-c" id="bar-cov" style="width:0%;background:var(--blue)"></div><div class="bar-c" id="bar-sel" style="width:0%;background:var(--blue-mid);opacity:.8"></div><div class="bar-c" id="bar-tgt" style="width:0%;background:var(--navy);opacity:.35"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-top:4px"><span id="bar-cov-lbl">歷史涵蓋 0%</span><span id="bar-sel-lbl" style="color:var(--blue)"></span><span id="bar-tgt-lbl">目標 80%</span></div>
-      <div class="calc-note" id="calc-note"></div>
-    </div>
-    <div class="sel-bar" id="sel-bar">
-      <div class="sel-info">已選 <strong id="sel-count">0</strong> 款 · <strong id="sel-bt-count">0</strong> 個 Body Type</div>
-      <div class="sel-pct-badge" id="sel-pct-badge">佔本季 0%</div>
-      <button class="btn-sm teal" onclick="showCreateSeasonModal()"> 建立當季進度追蹤</button>
-      <button class="btn-sm blue" onclick="exportSelected()">匯出已選款</button>
-      <button class="btn-sm" onclick="clearSelection()">清除選取</button>
+  <div class="panel">
+    <h2><span class="step-num">2</span>設定命名規則</h2>
+    <div class="mode-tabs">
+      <div class="mode-tab active" data-mode="auto">自動判別</div>
+      <div class="mode-tab" data-mode="template">範本套用</div>
+      <div class="mode-tab" data-mode="replace">尋找取代</div>
     </div>
 
-    <!-- Create season modal -->
-    <div id="create-season-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;align-items:center;justify-content:center">
-      <div style="background:var(--surface);border-radius:16px;padding:1.5rem;width:400px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
-        <div style="font-size:16px;font-weight:600;margin-bottom:.35rem"> 建立當季進度追蹤</div>
-        <div style="font-size:13px;color:var(--text2);margin-bottom:1rem"><strong id="modal-sel-count">0</strong> 款 · <strong id="modal-sel-bt">0</strong> BT</div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:12px;color:var(--text2);min-width:90px">季別名稱</span>
-          <input type="text" id="modal-season-name" placeholder="例如 FA26、SP27" style="flex:1;font-size:14px;font-weight:600;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none">
+    <div class="mode-panel active" id="autoPanel">
+      <div class="hint" style="margin-top:0;">
+        直接從原始檔名判別款號、Size Type、配色、視角，每一段都保留手動調整空間。配色會依原始標記自動分組，軟體匯出時常見的固定標籤（如產品類別、性別標示）會自動被抓出來剔除，下方只需確認每組配色名稱即可，不用逐張輸入；<strong>配色只會在樣品類型為 <code>col</code> 或 <code>fin</code> 時才加入檔名，其餘樣品類型會自動省略這一段</strong>。<br>
+        款號若結尾是「3碼數字＋1個 Size Type 字母」（<code>R／X／P／G／K／D／H／E</code>，例如 WX5FA512R），會自動拆成款號本體＋Size Type 下拉選單；沒有偵測到則預設為 <code>R</code>，兩者都可手動修改。視角結尾需為數字碼，或 <code>FRONT／BACK／SIDE</code> 等文字（也支援單字母 <code>F／B／S</code>，可加 <code>RIGHT／LEFT</code> 前綴），會自動轉換成 <code>000／180／270</code>；若無法判別，下方表格會在「視角」欄位提供下拉選單手動選擇，並以提示標示待確認的檔案。<br>
+        若檔名中包含 <code>pre／ctr／col／fin／pro</code> 其中之一、其後接 <code>v+數字</code> 版本號，會一併自動判別；<strong>若原始檔名沒有這兩項資訊，會套用下方「樣品類型／版本」的設定</strong>。檔名中若夾雜 6 碼或 8 碼的日期（如批號日期 261106）會自動偵測並刪除，不會混進配色名稱。
+      </div>
+      <div class="field-row" style="margin-top:16px;">
+        <div class="field">
+          <label>樣品類型（原始檔名沒有時套用）</label>
+          <select id="fallbackSampleType">
+            <option value="pre">pre — 開發前 pre-development</option>
+            <option value="ctr">ctr — 對色 counter</option>
+            <option value="col">col — 色回 color run</option>
+            <option value="fin" selected>fin — 3D最終樣 3d final sample</option>
+            <option value="pro">pro — 預產 pre-production</option>
+          </select>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem">
-          <span style="font-size:12px;color:var(--text2);min-width:90px">本季總 Body Type 數</span>
-          <input type="number" id="modal-total-bt" placeholder="業務表格全部款式 Body Type 加總" style="flex:1;font-size:13px;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none">
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="confirmCreateSeason()" style="flex:1;padding:.6rem;font-size:13px;font-weight:600;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer"> 建立並切換到進度頁</button>
-          <button onclick="hideCreateSeasonModal()" style="padding:.6rem 1rem;font-size:13px;border-radius:8px;border:.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer">取消</button>
+        <div class="field">
+          <label>版本（原始檔名沒有時套用）</label>
+          <input type="number" id="fallbackVersion" value="1" min="1">
         </div>
       </div>
+      <div id="detectedGroupsWrap" style="margin-top:16px;"></div>
     </div>
-    <div class="filter-row">
-      <button class="fbtn active-all" id="f-all" onclick="setFilter('all')">全部</button>
-      <button class="fbtn" id="f-new" onclick="setFilter('new')">只看未做過</button>
-      <button class="fbtn" id="f-dup" onclick="setFilter('dup')">只看 C/O</button>
-      <input class="search-input" type="text" id="search" placeholder="搜尋款號…" oninput="renderTable()">
-      <button class="btn-sm" onclick="exportAll()">匯出全部</button>
-      <button class="btn-sm" id="btn-export-sel" onclick="exportSelected()" style="display:none">匯出已選款</button>
+
+    <div class="mode-panel" id="templatePanel">
+      <div class="field-row">
+        <div class="field grow-2">
+          <label>命名範本</label>
+          <input type="text" id="templateInput" value="{original}_{n}" placeholder="例如：STYLE001_REG_{n}">
+        </div>
+        <div class="field">
+          <label>起始編號</label>
+          <input type="number" id="startNum" value="1" min="0">
+        </div>
+        <div class="field">
+          <label>編號位數</label>
+          <input type="number" id="paddingNum" value="3" min="1" max="10">
+        </div>
+        <div class="field">
+          <label>編號間隔</label>
+          <input type="number" id="stepNum" value="1" min="1">
+        </div>
+      </div>
+      <div class="hint">
+        可用變數：<code>{original}</code> 原始檔名（不含副檔名）　<code>{n}</code> 流水號　<code>{ext}</code> 副檔名<br>
+        其餘文字視為固定文字，例如範本 <code>STYLE001_REG_{n}</code> 會產生 STYLE001_REG_001.jpg、STYLE001_REG_002.jpg…（副檔名會自動保留）
+      </div>
     </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th class="cb-col"><input type="checkbox" id="cb-all" class="row-cb" onchange="toggleAll(this.checked)"></th>
-          <th style="width:36px">#</th><th>款號</th><th style="width:80px">本季季節</th><th style="width:80px">狀態</th><th>本季 Body Types</th><th>歷史已做</th><th style="width:100px">歷史季別</th>
-        </tr></thead>
-        <tbody id="tbody"><tr class="empty-row"><td colspan="8">請上傳當季下單表並點擊「開始比對」</td></tr></tbody>
+
+    <div class="mode-panel" id="replacePanel">
+      <div class="field-row">
+        <div class="field">
+          <label>尋找</label>
+          <input type="text" id="findInput" placeholder="要被取代的文字">
+        </div>
+        <div class="field">
+          <label>取代為</label>
+          <input type="text" id="replaceInput" placeholder="取代後的文字">
+        </div>
+        <div class="field" style="flex: 0 0 auto;">
+          <label>&nbsp;</label>
+          <label class="checkbox-field"><input type="checkbox" id="regexCheck"> 使用正規表達式</label>
+        </div>
+      </div>
+      <div class="hint">將原始檔名中符合「尋找」的文字取代為指定內容，副檔名不受影響</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="toolbar">
+      <h2 style="margin:0;"><span class="step-num">3</span>預覽與下載</h2>
+      <div class="stats"><span id="statCount">0</span> 個檔案 · <span id="statSize">0 B</span></div>
+    </div>
+    <div class="subtoolbar">
+      <button class="btn" id="sortBtn">依檔名排序</button>
+      <button class="btn" id="resetBtn">重設手動修改</button>
+      <button class="btn" id="clearBtn">清除全部</button>
+    </div>
+    <div id="tableWrap">
+      <div class="empty-state" id="emptyState">尚未上傳任何圖片</div>
+      <table id="fileTable" style="display:none;">
+        <thead>
+          <tr>
+            <th></th><th>#</th><th>原始檔名</th><th>新檔名（可直接編輯）</th><th class="view-col">視角</th><th>狀態</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="fileTableBody"></tbody>
       </table>
     </div>
-    <div class="update-section"><label style="cursor:pointer"><input type="file" accept=".xlsx,.xls,.csv" id="file-history-update" style="display:none"><span class="update-btn"> 更新歷史資料</span></label><span id="hist-update-msg" style="font-size:12px;color:var(--blue);margin-left:10px;display:none"></span></div>
+    <div class="actions-bar">
+      <div id="zipNamePreview" class="stats"></div>
+      <div id="progress"></div>
+      <button class="btn btn-primary" id="downloadBtn">下載全部（ZIP）</button>
+    </div>
   </div>
 </div>
-
-<!-- ══ TAB 2: 當季進度 ══════════════════════════════════ -->
-<div id="tab-progress" class="tab-content">
-
-  <!-- Season switcher -->
-  <div class="season-switcher">
-    <div class="season-tabs-wrap" id="season-tabs"></div>
-    <button class="btn-add-season" onclick="showAddSeasonForm()">＋ 新增季別</button>
-  </div>
-
-  <!-- Add season form -->
-  <div class="add-season-form" id="add-season-form" style="display:none">
-        <div class="form-row">
-      <span class="form-lbl">季別名稱</span>
-      <input type="text" class="form-input" id="new-season-name" placeholder="例如 SP27" style="max-width:140px">
-    </div>
-    <div class="form-row">
-      <span class="form-lbl">本季總 Body Type 數</span>
-      <input type="number" class="form-input" id="new-season-totalbt" placeholder="例如 120" style="max-width:120px">
-      <span style="font-size:12px;color:var(--text3)">（業務表格中全部款式的 Body Type 加總）</span>
-    </div>
-    <div class="form-row" style="align-items:flex-start">
-      <span class="form-lbl" style="padding-top:4px">上傳下單 Excel</span>
-      <div style="flex:1">
-        <label class="upload-box" id="box-new-season" style="margin-bottom:0;padding:.85rem 1rem">
-          <input type="file" accept=".xlsx,.xls,.csv" id="file-new-season">
-          <div class="upload-inner">
-            <div class="upload-icon" style="width:32px;height:32px"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-            <div><div style="font-size:12px;font-weight:600">點此上傳</div><div class="upload-fname" id="fname-new-season"></div></div>
-          </div>
-        </label>
-        <div id="new-season-col-setup" style="display:none;margin-top:10px">
-          <div style="margin-top:8px">
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
-              <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">款號</div><select id="ns-style" style="width:100%;font-size:12px;padding:4px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none"></select></div>
-              <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Body Type 數量</div><select id="ns-bt-count" style="width:100%;font-size:12px;padding:4px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none"><option value="">—</option></select></div>
-              <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Body Type</div><select id="ns-bt-types" style="width:100%;font-size:12px;padding:4px 6px;border:.5px solid var(--border2);border-radius:6px;background:var(--surface2);color:var(--text);outline:none"><option value="">—</option></select></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="form-actions">
-      <button class="btn-sm teal" onclick="confirmAddSeason()"> 確認新增</button>
-      <button class="btn-sm" onclick="hideAddSeasonForm()">取消</button>
-    </div>
-  </div>
-
-  <!-- Season content (dynamic) -->
-  <div id="season-content"></div>
-
-</div>
-</main>
-<div class="toast" id="toast"></div>
 
 <script>
-// ══ 工具函式 ═════════════════════════════════════════════
-function baseStyle(s){return String(s||'').trim().split('\n')[0].replace(/\+PO.*/i,'').replace(/_[A-Z]{2}\d{2}$/i,'').replace(/\s*\(.*\)$/,'').trim().toUpperCase()}
-function isValidStyleNum(s){return /^[A-Z]{2,}\d/i.test(s.trim())}
-function parseBTTypes(val){
-  if(!val) return [];
-  // 先保護 B&T / BIG & TALL，再以 & 或其他分隔符切割，最後還原
-  const src = String(val)
-    .replace(/BIG\s*&\s*TALL/gi, '__BIGT__')
-    .replace(/B\s*&\s*T/gi, '__BT__');
-  return src.split(/[\n+,\/\\]|\s*&\s*/)
-    .map(s => s.replace(/__BIGT__/g,'B&T').replace(/__BT__/g,'B&T').trim().toUpperCase())
-    .filter(s => s.length > 0);
-}
-function btMatch(a,b){a=a.toUpperCase().trim();b=b.toUpperCase().trim();if(a===b)return true;if(a.startsWith(b)||b.startsWith(a))return true;const syns=[['REG','REGULAR','REGULAR FIT'],['PLUS','PLUS SIZE','B&T','BIG & TALL','BIG AND TALL','TALL'],['PETITE','PETITE FIT'],['ADP','ADAPTIVE']];for(const g of syns){if(g.some(x=>a.startsWith(x)||x.startsWith(a))&&g.some(x=>b.startsWith(x)||x.startsWith(b)))return true}return false}
-// 大尺碼去重（PLUS / B&T 只顯示一個）
-function deduplicateBT(arr){
-  let hadLarge = false;
-  return arr.filter(b => {
-    const isLarge = /^(PLUS|B&T|BIG)/i.test(b);
-    if(isLarge){ if(hadLarge) return false; hadLarge=true; }
-    return true;
-  });
-}
-
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function dim(s){return`<span style="color:var(--text3)">${s}</span>`}
-function showToast(msg,type='teal-t'){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type+' show';setTimeout(()=>t.className='toast',2500)}
-function readExcel(file, cb, loadingId) {
-  const loading = loadingId ? document.getElementById(loadingId) : null;
-  if(loading) loading.classList.add('show');
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    const buf = e.target.result;
-    // 用 Web Worker 在背景執行緒解析，主畫面不凍結
-    const code = `
-      self.onmessage = function(ev) {
-        try {
-          // 動態載入 XLSX（inline worker 不能用 importScripts 指向主頁的 script tag）
-          // 改用全域 XLSX（由主頁 script 標籤載入，worker 透過 importScripts 取得）
-          importScripts('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-          var wb = XLSX.read(new Uint8Array(ev.data), {type:'array', cellStyles:false, sheetStubs:false, WTF:false, sheetRows:2000});
-          var ws = wb.Sheets[wb.SheetNames[0]];
-          var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
-          self.postMessage({ok:true, rows:rows});
-        } catch(err) {
-          self.postMessage({ok:false, msg:err.message});
-        }
-      };
-    `;
-    const blob = new Blob([code], {type:'application/javascript'});
-    const url  = URL.createObjectURL(blob);
-    const worker = new Worker(url);
-
-    worker.onmessage = ev => {
-      URL.revokeObjectURL(url);
-      worker.terminate();
-      if(loading) loading.classList.remove('show');
-      if(ev.data.ok) {
-        cb(ev.data.rows);
-      } else {
-        alert('讀取 Excel 失敗：' + ev.data.msg + '\n\n請確認檔案為 .xlsx / .xls / .csv');
-      }
-    };
-    worker.onerror = err => {
-      URL.revokeObjectURL(url);
-      worker.terminate();
-      if(loading) loading.classList.remove('show');
-      // Worker 失敗則退回主執行緒解析（相容性保底）
-      try {
-        const wb = XLSX.read(new Uint8Array(buf), {type:'array', cellStyles:false, sheetRows:2000});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        cb(XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false}));
-      } catch(e2) {
-        alert('無法讀取檔案，請重試');
-      }
-    };
-    worker.postMessage(buf, [buf]);
-  };
-  reader.onerror = () => {
-    if(loading) loading.classList.remove('show');
-    alert('無法讀取檔案，請重試');
-  };
-  reader.readAsArrayBuffer(file);
-}
-function getHeaders(rows){return(rows[0]||[]).map((h,i)=>({label:String(h||`欄${i+1}`),value:String(i)}))}
-function fillSel(sel,hdrs,guessReg,opt){sel.innerHTML=opt?'<option value="">—</option>':'';hdrs.forEach(h=>{const o=document.createElement('option');o.value=h.value;o.textContent=h.label;sel.appendChild(o);});const gi=hdrs.findIndex(h=>guessReg.test(h.label));if(gi>=0)sel.value=String(gi)}
-
-// ══ 歷史資料 ═════════════════════════════════════════════
-// ── 比對 Session 儲存 ─────────────────────────────────────
-const COMP_KEY = '3d_comp_v1';
-let compSessions = {};    // {seasonName: {rawStyles, selectedStyles, selectedBTs, totalBT}}
-let currentCompSeason = null;
-
-function loadCompSessions(){
-  try{ const d=localStorage.getItem(COMP_KEY); if(d) compSessions=JSON.parse(d); }catch(e){}
-}
-
-function saveCompSessions(){
-  try{ localStorage.setItem(COMP_KEY, JSON.stringify(compSessions)); }catch(e){}
-}
-
-function renderCompTabs(){
-  const keys = Object.keys(compSessions);
-  const bar = document.getElementById('comp-bar');
-  if(keys.length === 0){ bar.style.display='none'; return; }
-  bar.style.display='flex';
-  document.getElementById('comp-tabs').innerHTML = keys.map(k => `
-    <span class="comp-pill${k===currentCompSeason?' active':''}" onclick="switchCompSession('${k}')">
-      <strong>${k}</strong>
-      <span class="cpx" onclick="event.stopPropagation();deleteCompSession('${k}')" title="刪除此比對">&#215;</span>
-    </span>`).join('');
-}
-
-function saveCompSession(){
-  const name = document.getElementById('comp-name-input').value.trim().toUpperCase();
-  if(!name){ alert('請輸入季別名稱'); return; }
-  // Store only essential data (not re-derivable history info)
-  compSessions[name] = {
-    name,
-    rawStyles: results.map(r => ({raw:r.raw, base:r.base, season:r.season, btCount:r.btCount, btTypes:r.btTypes, btTypesKnown:r.btTypesKnown})),
-    selectedStyles: [...selectedStyles],
-    selectedBTs: Object.fromEntries(Object.entries(selectedBTs).map(([k,v])=>[k,[...v]])),
-    totalBT,
-    targetPct: parseFloat(document.getElementById('target-pct').value) || 80
-  };
-  saveCompSessions();
-  currentCompSeason = name;
-  syncSelectionsToProgress(name);
-  renderCompTabs();
-  document.getElementById('comp-save-bar').classList.remove('show');
-  showToast(`已儲存比對：${name}`, 'teal-t');
-}
-
-function switchCompSession(name){
-  const s = compSessions[name];
-  if(!s) return;
-  // Restore results (re-compute history matching from current historyMap)
-  results = s.rawStyles.map(r => {
-    const hist = historyMap[r.base];
-    const isDup = !!hist;
-    const histBT = hist ? hist.bt : [];
-    const histSeasons = hist ? hist.s : [];
-    const coveredTypes = r.btTypesKnown ? r.btTypes.filter(b => histBT.some(h=>btMatch(b,h))) : [];
-    const newTypes = r.btTypesKnown ? r.btTypes.filter(b => !histBT.some(h=>btMatch(b,h))) : [];
-    return {...r, isDup, histBT, histSeasons, coveredTypes, newTypes};
-  });
-  // Restore selections
-  selectedStyles.clear();
-  s.selectedStyles.forEach(x => selectedStyles.add(x));
-  Object.keys(selectedBTs).forEach(k => delete selectedBTs[k]);
-  Object.entries(s.selectedBTs).forEach(([k,v]) => selectedBTs[k] = new Set(v));
-  totalBT = s.totalBT;
-  coveredBT = results.reduce((sum,r) => sum + r.coveredTypes.length, 0);
-  currentCompSeason = name;
-  // Update UI
-  document.getElementById('cnt-total').textContent = results.length;
-  document.getElementById('cnt-bt-total').textContent = totalBT;
-  document.getElementById('cnt-new').textContent = results.filter(r=>!r.isDup).length;
-  document.getElementById('cnt-dup').textContent = results.filter(r=>r.isDup).length;
-  document.getElementById('result-area').style.display = 'block';
-  document.getElementById('col-setup-area').style.display = 'none';
-  document.getElementById('box-season').classList.remove('done');
-  document.getElementById('fname-season').textContent = '';
-  document.getElementById('btn-compare').disabled = true;
-  if(s.targetPct) document.getElementById('target-pct').value = s.targetPct;
-  updateCalc(); setFilter('all'); renderCompTabs();
-}
-
-function startNewComp(){
-  currentCompSeason = null;
-  results = []; selectedStyles.clear();
-  Object.keys(selectedBTs).forEach(k => delete selectedBTs[k]);
-  document.getElementById('result-area').style.display = 'none';
-  document.getElementById('col-setup-area').style.display = 'none';
-  document.getElementById('box-season').classList.remove('done');
-  document.getElementById('fname-season').textContent = '';
-  document.getElementById('btn-compare').disabled = true;
-  document.getElementById('comp-save-bar').classList.remove('show');
-  renderCompTabs();
-}
-
-function deleteCompSession(name){
-  if(!confirm(`確定要刪除「${name}」的比對紀錄？\n（進度追蹤資料不受影響）`)) return;
-  delete compSessions[name];
-  saveCompSessions();
-  if(currentCompSeason === name){
-    currentCompSeason = null;
-    results = [];
-    document.getElementById('result-area').style.display = 'none';
-  }
-  renderCompTabs();
-}
-
-// 選款變動後同步至進度追蹤
-function syncSelectionsToProgress(seasonName){
-  if(!seasonName) return;
-  const selRows = results.filter(r => selectedStyles.has(r.base));
-  const styles = selRows.map(r => {
-    const sel = selectedBTs[r.base];
-    const bt = r.btTypesKnown
-      ? [...(sel || new Set(r.btTypes))]
-      : (r.histBT.length ? r.histBT : ['REG']);
-    return {base: r.base, bt, btCount: sel?.size || r.btCount};
-  });
-  if(!allSeasons[seasonName]){
-    allSeasons[seasonName] = {name:seasonName, totalBT, styles:[], progress:{}};
-  }
-  allSeasons[seasonName].styles = styles;
-  allSeasons[seasonName].totalBT = totalBT;
-  // Init progress for new styles
-  styles.forEach(s => {
-    if(!allSeasons[seasonName].progress[s.base])
-      allSeasons[seasonName].progress[s.base] = {ordered:false, done:false, note:'', excludedBT:[]};
-  });
-  saveAllSeasons();
-  // Also update comp session
-  if(compSessions[seasonName]){
-    compSessions[seasonName].selectedStyles = [...selectedStyles];
-    compSessions[seasonName].selectedBTs = Object.fromEntries(Object.entries(selectedBTs).map(([k,v])=>[k,[...v]]));
-    saveCompSessions();
-  }
-}
-
-const HISTORY_RAW={
-"DX5FA000":{s:["FA25"],bt:["REG"]},"ET33A401":{s:["SP26"],bt:["REG"]},
-"EX5FV403":{s:["FA25"],bt:["REG"]},"MA5FK304":{s:["FA25"],bt:["REG"]},
-"MA6SK101":{s:["SU26"],bt:["REG"]},"MA6UK100":{s:["SU26"],bt:["REG","B&T"]},
-"MA6UK101":{s:["SU26"],bt:["REG","B&T"]},"MS53K505":{s:["FA25"],bt:["REG"]},
-"MT03A111":{s:["SU26"],bt:["REG","PLUS"]},"MT41A334":{s:["FA25"],bt:["REG"]},
-"MT43A102":{s:["FA25"],bt:["REG"]},"MT44A405":{s:["FA25"],bt:["REG"]},
-"MT52A001":{s:["FA25"],bt:["REG"]},"MT5FA103":{s:["FA25"],bt:["REG"]},
-"MT5FA106":{s:["FA25","SP26","SU26"],bt:["REG"]},"MX23A107":{s:["FA25"],bt:["REG"]},
-"MX23A408":{s:["FA25"],bt:["REG"]},"MX43A409":{s:["FA25","SU26"],bt:["REG"]},
-"MX43A413":{s:["SP26"],bt:["REG"]},"MX51A206":{s:["FA25","SP26"],bt:["REG"]},
-"MX51A207":{s:["FA25","SP26"],bt:["REG"]},"MX5FJ425":{s:["FA25","SP26","SU26"],bt:["REG","PLUS"]},
-"MX5HJ431":{s:["SP26"],bt:["REG"]},"MX5HK101":{s:["SP26"],bt:["REG"]},
-"MX6SJ303":{s:["SP26"],bt:["REG"]},"MX6SK005":{s:["SU26"],bt:["REG"]},
-"MX6SK007":{s:["SP26","SU26"],bt:["REG","PLUS"]},"MX6SK016":{s:["SU26"],bt:["REG","PLUS"]},
-"WC43J001":{s:["FA25","SP26"],bt:["REG"]},"WC44X065":{s:["FA25"],bt:["REG"]},
-"WC5FG301":{s:["FA25"],bt:["REG"]},"WC5FK060":{s:["FA25"],bt:["REG"]},
-"WC6SJ007":{s:["SU26"],bt:["REG"]},"WC6SJ101":{s:["SU26"],bt:["REG","PLUS","PETITE"]},
-"WT23A501":{s:["SP26","SU26"],bt:["REG","PLUS"]},"WT23A502":{s:["SU26"],bt:["REG","PETITE","PLUS"]},
-"WT24A301":{s:["SP26"],bt:["REG"]},"WT24A400":{s:["SU26"],bt:["REG","PETITE","PLUS"]},
-"WT24A511":{s:["SU26"],bt:["REG","PLUS"]},"WT41A506":{s:["SP26"],bt:["REG"]},
-"WT5FA257":{s:["FA25"],bt:["REG"]},"WX43A124":{s:["FA25"],bt:["REG"]},
-"WX43A128":{s:["FA25"],bt:["REG"]},"WX43A129":{s:["FA25"],bt:["REG"]},
-"WX51A302":{s:["FA25"],bt:["REG"]},"WX52A503":{s:["SP26"],bt:["REG"]},
-"WX52V301":{s:["FA25"],bt:["REG"]},"WX5FA119":{s:["SP26"],bt:["REG"]},
-"WX5FA512":{s:["FA25","SP26","SU26"],bt:["REG"]},"WX6SA107":{s:["SP26","SU26"],bt:["REG"]},
-"WX6SA300":{s:["SU26"],bt:["REG"]},"WX6UA100":{s:["SU26"],bt:["REG"]},
-"WX6UA505":{s:["SU26"],bt:["REG"]},"ZS5FX410":{s:["FA25"],bt:["REG"]}
-};
-let historyMap=JSON.parse(JSON.stringify(HISTORY_RAW));
-
-// ══ FA26 預設款式清單 ═════════════════════════════════════
-const FA26_PLAN=[
-{base:"ET33A401",bt:["REG"],btCount:1},{base:"MT03A111",bt:["REG","PLUS"],btCount:2},
-{base:"WT6FA124",bt:["PLUS","REG"],btCount:2},{base:"WT5FA257",bt:["REG","PLUS"],btCount:2},
-{base:"MS6SK325",bt:["REG"],btCount:1},{base:"WT23A502",bt:["PLUS","PETITE","REG"],btCount:3},
-{base:"WT24A511",bt:["PLUS","REG"],btCount:2},{base:"WT41A506",bt:["REG","PETITE","PLUS"],btCount:3},
-{base:"WT24A501",bt:["REG","PETITE","PLUS"],btCount:3},{base:"WT23A501",bt:["PLUS","REG"],btCount:2},
-{base:"WT24A400",bt:["PLUS","PETITE","REG"],btCount:3},{base:"WT24A301",bt:["PLUS","REG"],btCount:2},
-{base:"WT31A302",bt:["PLUS","REG"],btCount:2},{base:"MA6SK101",bt:["REG"],btCount:1},
-{base:"MX5FJ425",bt:["REG","B&T"],btCount:2},{base:"MX43A401",bt:["REG","PLUS"],btCount:2},
-{base:"MX51A206",bt:["REG","PLUS"],btCount:2},{base:"MX43A409",bt:["REG"],btCount:1},
-{base:"MX43A413",bt:["REG"],btCount:1},{base:"MX6SK007",bt:["REG","PLUS"],btCount:2},
-{base:"MX6SK016",bt:["REG"],btCount:1},{base:"MX5HK101",bt:["REG","B&T"],btCount:2},
-{base:"MX6SK104",bt:["REG"],btCount:1},{base:"MX5HJ431",bt:["REG"],btCount:1},
-{base:"MX6SK108",bt:["REG","PLUS"],btCount:2},{base:"MX6FK207",bt:["REG"],btCount:1},
-{base:"MX6FJ409",bt:["REG"],btCount:1},{base:"MX6FK108",bt:["REG"],btCount:1},
-{base:"WX6FA117",bt:["REG"],btCount:1},{base:"WX6FA516",bt:["REG"],btCount:1},
-{base:"WX6UA505",bt:["REG"],btCount:1},{base:"WX6UA100",bt:["REG"],btCount:1},
-{base:"WX5FA512",bt:["REG"],btCount:1},{base:"WX6FA513",bt:["REG"],btCount:1},
-{base:"WX6FA216",bt:["REG"],btCount:1},
+let files = [];
+let styleGroups = {};
+let sizeTypeGroups = {};
+let colorGroups = {};
+const IMAGE_EXT = ['jpg','jpeg','png','gif','webp','bmp','tiff','tif','svg','heic','heif','avif'];
+const SAMPLE_TYPES = ['pre','ctr','col','fin','pro'];
+const SIZE_TYPES = [
+  { code: 'r', label: "R — Regular" },
+  { code: 'x', label: "X — Big Men" },
+  { code: 'p', label: "P — Plus (Women's / Big Girl's Kids)" },
+  { code: 'g', label: "G — Kids 4-12" },
+  { code: 'k', label: "K — Kids 12M-5T" },
+  { code: 'd', label: "D — Baby (Newborn-24M)" },
+  { code: 'h', label: "H — Kids Big Boy 8-20" },
+  { code: 'e', label: "E — Petite" }
 ];
+const SIZE_TYPE_CODES = SIZE_TYPES.map(s => s.code);
+const VIEW_TEXT_MAP = { front: '000', back: '180', side: '270', f: '000', b: '180', s: '270' };
 
-// ══ 多季管理 ═════════════════════════════════════════════
-const STORAGE_KEY='3d_seasons_v2';
-let allSeasons={};     // {seasonKey: {name, totalBT, styles:[{base,bt,btCount}], progress:{base:{ordered,done,note}}}}
-let currentSeasonKey='FA26';
-let newSeasonRows=[];  // raw rows from uploaded Excel for new season
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
 
-function loadAllSeasons(){
-  try{
-    const d=localStorage.getItem(STORAGE_KEY);
-    if(d) allSeasons=JSON.parse(d);
-  }catch(e){}
-  // Ensure FA26 always exists (pre-loaded)
-  if(!allSeasons['FA26']){
-    allSeasons['FA26']={name:'FA26',totalBT:115,styles:FA26_PLAN,progress:{}};
-  } else {
-    allSeasons['FA26'].styles=FA26_PLAN; // always use latest FA26 plan
-    allSeasons['FA26'].totalBT=115;
-  }
-  // ── Migration：重新解析舊版 bt 陣列（如 ["REG & PLUS"] → ["REG","PLUS"]）
-  Object.values(allSeasons).forEach(season=>{
-    if(season.styles) season.styles.forEach(s=>{
-      if(Array.isArray(s.bt) && s.bt.length > 0){
-        const reparsed = s.bt.flatMap(b => parseBTTypes(b));
-        s.bt = [...new Set(reparsed)];
-        s.btCount = s.bt.length || s.btCount;
-      }
-    });
-  });
-
-  // Init missing progress entries
-  Object.values(allSeasons).forEach(season=>{
-    if(!season.progress) season.progress={};
-    season.styles.forEach(s=>{
-      if(!season.progress[s.base]) season.progress[s.base]={ordered:false,done:false,note:''};
-    });
-  });
-}
-
-function saveAllSeasons(){
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(allSeasons));}catch(e){}
-}
-
-function rebuildHistoryFromSeasons(){
-  // Reset to base history
-  historyMap=JSON.parse(JSON.stringify(HISTORY_RAW));
-  // Add completed items from ALL seasons
-  Object.entries(allSeasons).forEach(([seasonKey,season])=>{
-    season.styles.forEach(s=>{
-      const st=season.progress[s.base];
-      if(st?.done){
-        if(!historyMap[s.base]) historyMap[s.base]={s:[],bt:[]};
-        if(!historyMap[s.base].s.includes(seasonKey)) historyMap[s.base].s.push(seasonKey);
-        s.bt.forEach(b=>{if(!historyMap[s.base].bt.includes(b)) historyMap[s.base].bt.push(b);});
-      }
-    });
-  });
-  updateHistBadge();
-}
-
-function updateHistBadge(){
-  document.getElementById('hist-badge').textContent=`歷史：${Object.keys(historyMap).length} 款`;
-}
-
-// ══ Season UI ═════════════════════════════════════════════
-function renderSeasonTabs(){
-  const wrap=document.getElementById('season-tabs');
-  const keys=Object.keys(allSeasons);
-  wrap.innerHTML=keys.map(k=>{
-    const s=allSeasons[k];
-    const totalStyles=s.styles.length;
-    const doneStyles=s.styles.filter(st=>s.progress[st.base]?.done).length;
-    const isComplete=doneStyles===totalStyles&&totalStyles>0;
-    const isActive=k===currentSeasonKey;
-    return`<span class="season-pill${isActive?' active':''}${isComplete&&!isActive?' archived':''}" onclick="switchSeason('${k}')">
-      ${isComplete?' ':''}<strong>${k}</strong>&nbsp;<span style="opacity:.7;font-size:11px">${doneStyles}/${totalStyles}</span>
-      <span class="del-x" onclick="event.stopPropagation();deleteSeason('${k}')" title="刪除此季別">&#215;</span>
-    </span>`;
-  }).join('');
-}
-
-function deleteSeason(key){
-  const doneCount=allSeasons[key]?.styles.filter(s=>allSeasons[key].progress[s.base]?.done).length||0;
-  const msg=doneCount>0
-    ?`確定要刪除「${key}」季別嗎？
-
-此季有 ${doneCount} 款已完成，刪除後歷史紀錄中來自此季的記錄也會一併移除。`
-    :`確定要刪除「${key}」季別嗎？`;
-  if(!confirm(msg))return;
-  delete allSeasons[key];
-  saveAllSeasons();
-  // Switch to another season if deleted current
-  const remaining=Object.keys(allSeasons);
-  if(currentSeasonKey===key) currentSeasonKey=remaining[remaining.length-1]||'';
-  rebuildHistoryFromSeasons();
-  renderSeasonTabs();
-  renderSeasonContent();
-  showToast(`已刪除季別 ${key}`,'red-t');
-}
-
-function switchSeason(key){
-  currentSeasonKey=key;
-  renderSeasonTabs();
-  renderSeasonContent();
-}
-
-function renderSeasonContent(){
-  const season=allSeasons[currentSeasonKey];
-  if(!season){document.getElementById('season-content').innerHTML='';return;}
-  const totalStyles=season.styles.length;
-  const doneSt=season.styles.filter(s=>season.progress[s.base]?.done);
-  const ordSt=season.styles.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
-  const doneBT=doneSt.reduce((sum,s)=>sum+getActiveBTCount(s),0);
-  const ordBT=ordSt.reduce((sum,s)=>sum+getActiveBTCount(s),0);
-  const totalPlanBT=season.styles.reduce((sum,s)=>sum+getActiveBTCount(s),0);
-  const achievePct=season.totalBT?(doneBT/season.totalBT*100).toFixed(1):0;
-  const isComplete=doneSt.length===totalStyles&&totalStyles>0;
-  const doneW=season.totalBT?Math.min(doneBT/season.totalBT*100,100):0;
-  const ordW=season.totalBT?Math.min(ordBT/season.totalBT*100,100-doneW):0;
-  const target50gap=Math.max(0,50-doneW-ordW);
-
-  const content=document.getElementById('season-content');
-  content.innerHTML=`
-    ${isComplete?`<div class="archived-banner" style="font-size:12px;padding:.5rem .85rem;margin-bottom:.85rem"> <strong>${currentSeasonKey}</strong> 全部完成 · ${doneBT} 個 Body Type 已入歷史</div>`:''}
-        <div class="p-stats">
-      <div class="p-stat"><div class="pval"><span style="color:var(--blue)">${doneSt.length}</span> <span style="font-size:15px;color:var(--text2)">/ ${totalStyles} 款</span></div><div class="plbl">已完成</div></div>
-      <div class="p-stat"><div class="pval"><span style="color:var(--blue-dark)">${ordSt.length+doneSt.length}</span> <span style="font-size:15px;color:var(--text2)">/ ${totalStyles} 款</span></div><div class="plbl">已進單</div></div>
-      <div class="p-stat"><div class="pval" style="color:var(--navy)">${achievePct}%</div><div class="plbl">達成率</div></div>
-    </div>
-    <div class="pbar-wrap" style="padding:.6rem 1rem;margin-bottom:1rem">
-      <div class="pbar">
-        <div class="bar-c" style="width:${doneW}%;background:var(--blue)"></div>
-        <div class="bar-c" style="width:${ordW}%;background:var(--blue-mid);opacity:.7"></div>
-        <div class="bar-c" style="width:${target50gap}%;background:var(--navy);opacity:.3"></div>
-      </div>
-    </div>
-    <div class="filter-row">
-      <button class="pfbtn pf-active" id="pf-all" onclick="setPFilter('all')">全部（${totalStyles}）</button>
-      <button class="pfbtn" id="pf-pending" onclick="setPFilter('pending')">待進單（${season.styles.filter(s=>!season.progress[s.base]?.ordered&&!season.progress[s.base]?.done).length}）</button>
-      <button class="pfbtn" id="pf-ordered" onclick="setPFilter('ordered')">已進單（${ordSt.length}）</button>
-      <button class="pfbtn" id="pf-done" onclick="setPFilter('done')">已完成（${doneSt.length}）</button>
-      <input class="search-input" type="text" id="p-search" placeholder="搜尋款號…" oninput="renderProgressTable()">
-      <button class="btn-sm" onclick="exportProgress()">匯出進度表</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr>
-          <th style="width:36px">#</th><th>款號</th><th>Body Types</th>
-          <th style="width:60px;text-align:center">Body Type 數</th>
-          <th style="width:80px;text-align:center"> 已進單</th>
-          <th style="width:80px;text-align:center"> 已完成</th>
-          <th>備註</th>
-        </tr></thead>
-        <tbody id="p-tbody"></tbody>
-      </table>
-    </div>`;
-  pCurrentFilter='all';
-  renderProgressTable();
-}
-
-let pCurrentFilter='all';
-
-function setPFilter(f){
-  pCurrentFilter=f;
-  const season=allSeasons[currentSeasonKey];
-  const totalStyles=season.styles.length;
-  const doneSt=season.styles.filter(s=>season.progress[s.base]?.done).length;
-  const ordSt=season.styles.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done).length;
-  const pendSt=season.styles.filter(s=>!season.progress[s.base]?.ordered&&!season.progress[s.base]?.done).length;
-  ['all','pending','ordered','done'].forEach(id=>{
-    const btn=document.getElementById('pf-'+id);
-    if(!btn)return;
-    const labels={all:`全部（${totalStyles}）`,pending:`待進單（${pendSt}）`,ordered:`已進單（${ordSt}）`,done:`已完成（${doneSt}）`};
-    btn.textContent=labels[id];
-    btn.className='pfbtn'+(f===id?' pf-'+id:'');
-  });
-  renderProgressTable();
-}
-
-function getPFiltered(){
-  const season=allSeasons[currentSeasonKey];
-  if(!season)return[];
-  const q=(document.getElementById('p-search')?.value||'').trim().toUpperCase();
-  let items=season.styles;
-  if(pCurrentFilter==='pending') items=items.filter(s=>!season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
-  else if(pCurrentFilter==='ordered') items=items.filter(s=>season.progress[s.base]?.ordered&&!season.progress[s.base]?.done);
-  else if(pCurrentFilter==='done') items=items.filter(s=>season.progress[s.base]?.done);
-  if(q) items=items.filter(s=>s.base.includes(q));
-  return items;
-}
-
-// 取得某款目前被排除的 BT（存在 progress.excludedBT）
-function getExcludedBT(base){
-  const season=allSeasons[currentSeasonKey];
-  return new Set((season?.progress[base]?.excludedBT)||[]);
-}
-
-// 取得某款實際有效 BT 數量
-function getActiveBTCount(s){
-  const excl=getExcludedBT(s.base);
-  return s.bt.filter(b=>!excl.has(b)).length || 1;
-}
-
-function toggleProgressBT(base, bt){
-  const season=allSeasons[currentSeasonKey];if(!season)return;
-  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:'',excludedBT:[]};
-  if(!season.progress[base].excludedBT) season.progress[base].excludedBT=[];
-  const arr=season.progress[base].excludedBT;
-  const idx=arr.indexOf(bt);
-  if(idx>=0) arr.splice(idx,1);  // 恢復
-  else arr.push(bt);              // 排除
-  saveAllSeasons();
-  renderProgressTable();
-  renderSeasonContent();  // 更新進度統計
-}
-
-function renderProgressTable(){
-  const season=allSeasons[currentSeasonKey];
-  if(!season)return;
-  const items=getPFiltered();
-  const tbody=document.getElementById('p-tbody');
-  if(!tbody)return;
-  if(!items.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">沒有符合條件的款式</td></tr>';return;}
-  tbody.innerHTML=items.map((s,i)=>{
-    const st=season.progress[s.base]||{ordered:false,done:false,note:'',excludedBT:[]};
-    const excl=new Set(st.excludedBT||[]);
-    const activeCnt=s.bt.filter(b=>!excl.has(b)).length||1;
-    const btTags=s.bt.map(b=>{
-      const isExcl=excl.has(b);
-      return`<span class="bt-tag ${isExcl?'bt-excluded':'bt-hist'}" onclick="toggleProgressBT('${esc(s.base)}','${esc(b)}')" title="${isExcl?'點擊恢復':'點擊排除'}">${esc(b)}</span>`;
-    }).join('');
-    const rowCls=st.done?'p-done':'';
-    return`<tr class="${rowCls}">
-      <td style="color:var(--text3);font-size:11px">${i+1}</td>
-      <td class="style-no">${esc(s.base)}</td>
-      <td>${btTags}</td>
-      <td style="text-align:center;font-weight:600;color:var(--text2)">${activeCnt}<span style="color:var(--text3);font-weight:400;font-size:11px">/${s.btCount}</span></td>
-      <td style="text-align:center"><input type="checkbox" class="p-cb blue-cb" ${st.ordered?'checked':''} onchange="onOrderedChange('${esc(s.base)}',this.checked)"></td>
-      <td style="text-align:center"><input type="checkbox" class="p-cb" ${st.done?'checked':''} onchange="onDoneToggle('${esc(s.base)}',this.checked)"></td>
-      <td><input class="note-input" type="text" value="${esc(st.note||'')}" placeholder="備註…" onchange="onNoteChange('${esc(s.base)}',this.value)"></td>
-    </tr>`;
-  }).join('');
-}
-
-function onOrderedChange(base,checked){
-  const season=allSeasons[currentSeasonKey];if(!season)return;
-  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:''};
-  season.progress[base].ordered=checked;
-  saveAllSeasons();renderSeasonContent();
-}
-
-function onDoneToggle(base,checked){
-  const season=allSeasons[currentSeasonKey];if(!season)return;
-  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:''};
-  season.progress[base].done=checked;
-  if(checked) season.progress[base].ordered=true;
-  saveAllSeasons();
-  rebuildHistoryFromSeasons();
-  showToast(checked?` ${base} 已加入歷史紀錄`:`${base} 已從歷史移除`,checked?'teal-t':'red-t');
-  renderSeasonContent();
-  renderSeasonTabs();
-}
-
-function onNoteChange(base,val){
-  const season=allSeasons[currentSeasonKey];if(!season)return;
-  if(!season.progress[base]) season.progress[base]={ordered:false,done:false,note:''};
-  season.progress[base].note=val;
-  saveAllSeasons();
-}
-
-function exportProgress(){
-  const season=allSeasons[currentSeasonKey];if(!season)return;
-  const data=[['款號','Body Type 種類','Body Type 數量','已進單','已完成','備註'],
-    ...season.styles.map(s=>{
-      const st=season.progress[s.base]||{};
-      const excl=new Set(st.excludedBT||[]);
-      const activeBT=s.bt.filter(b=>!excl.has(b));
-      return[s.base, activeBT.join(' + '), activeBT.length, st.ordered?'V':'', st.done?'V':'', st.note||''];
-    })];
-  const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:16},{wch:24},{wch:8},{wch:8},{wch:8},{wch:24}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentSeasonKey+'進度');
-  XLSX.writeFile(wb,`3D_${currentSeasonKey}_進度.xlsx`);
-}
-
-// ══ 新增季別 ═══════════════════════════════════════════
-function showAddSeasonForm(){document.getElementById('add-season-form').style.display='block';document.getElementById('add-season-form').scrollIntoView({behavior:'smooth',block:'start'});}
-function hideAddSeasonForm(){document.getElementById('add-season-form').style.display='none';newSeasonRows=[];}
-
-document.getElementById('file-new-season').addEventListener('change',function(){
-  if(!this.files[0])return;
-  document.getElementById('fname-new-season').textContent=this.files[0].name;
-  document.getElementById('box-new-season').classList.add('done');
-  readExcel(this.files[0],rows=>{
-    newSeasonRows=rows;
-    const hdrs=getHeaders(rows);
-    fillSel(document.getElementById('ns-style'),hdrs,/style|款式|編號|item/i,false);
-    fillSel(document.getElementById('ns-bt-count'),hdrs,/^body.?type$|^bt$|body.*qty/i,true);
-    fillSel(document.getElementById('ns-bt-types'),hdrs,/3d.*製作|製作|bt.*type.*list/i,true);
-    document.getElementById('new-season-col-setup').style.display='block';
-  });
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  addFiles(e.dataTransfer.files);
 });
+fileInput.addEventListener('change', e => { addFiles(e.target.files); fileInput.value = ''; });
 
-function confirmAddSeason(){
-  const name=document.getElementById('new-season-name').value.trim().toUpperCase();
-  if(!name){alert('請輸入季別名稱');return;}
-  if(allSeasons[name]){if(!confirm(`${name} 已存在，確定要覆蓋？`))return;}
-  const totalBT=parseInt(document.getElementById('new-season-totalbt').value)||0;
+function isImageFile(file) {
+  if (file.type && file.type.startsWith('image/')) return true;
+  const ext = file.name.split('.').pop().toLowerCase();
+  return IMAGE_EXT.includes(ext);
+}
 
-  let styles=[];
-  if(newSeasonRows.length){
-    const sCol=parseInt(document.getElementById('ns-style').value);
-    const btCCol=document.getElementById('ns-bt-count').value;
-    const btTCol=document.getElementById('ns-bt-types').value;
-    const seen=new Set();
-    newSeasonRows.slice(1).forEach(row=>{
-      const rawVal=String(row[sCol]||'').trim();if(!rawVal)return;
-      const base=baseStyle(rawVal);if(!base||!isValidStyleNum(base))return;
-      if(seen.has(base))return;seen.add(base);
-      let btCount=1;if(btCCol){const n=parseInt(row[parseInt(btCCol)]);if(!isNaN(n)&&n>0)btCount=n;}
-      let bt=[];if(btTCol)bt=parseBTTypes(row[parseInt(btTCol)]);
-      if(!bt.length)bt=btCount===1?['REG']:['REG'];
-      styles.push({base,bt,btCount});
-    });
+function splitExt(name) {
+  const dotIdx = name.lastIndexOf('.');
+  if (dotIdx <= 0) return { base: name, ext: '' };
+  return { base: name.slice(0, dotIdx), ext: name.slice(dotIdx + 1) };
+}
+
+function looksLikeDateToken(token) {
+  // Catches plain numeric date codes with no separators of their own (already split
+  // out as one token by the main tokenizer), e.g. a 261106 (YYMMDD) lot/batch date
+  // sitting between the style and the real colorway. Validates month/day so an
+  // unrelated 6- or 8-digit code isn't mistaken for one.
+  if (/^\d{6}$/.test(token)) {
+    const mm = parseInt(token.slice(2, 4), 10);
+    const dd = parseInt(token.slice(4, 6), 10);
+    return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31;
+  }
+  if (/^\d{8}$/.test(token)) {
+    const mm = parseInt(token.slice(4, 6), 10);
+    const dd = parseInt(token.slice(6, 8), 10);
+    return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31;
+  }
+  return false;
+}
+
+function parseSourceFilename(originalName) {
+  const { base } = splitExt(originalName);
+  const tokens = base.split(/[-_\s]+/).filter(t => t.length > 0);
+  if (tokens.length < 1) return null;
+  const style = tokens[0];
+
+  let sampleType = null, version = null, restStart = 1;
+  const sampleTypeIdx = tokens.findIndex((t, i) => i > 0 && SAMPLE_TYPES.includes(t.toLowerCase()));
+  if (sampleTypeIdx > 0) {
+    const versionToken = tokens[sampleTypeIdx + 1];
+    if (versionToken && /^v\d+$/i.test(versionToken)) {
+      sampleType = tokens[sampleTypeIdx].toLowerCase();
+      version = versionToken.replace(/^v/i, '');
+      restStart = sampleTypeIdx + 2;
+    }
   }
 
-  allSeasons[name]={name,totalBT,styles,progress:{}};
-  styles.forEach(s=>{allSeasons[name].progress[s.base]={ordered:false,done:false,note:''};});
-  saveAllSeasons();
-  currentSeasonKey=name;
-  hideAddSeasonForm();
-  renderSeasonTabs();
-  renderSeasonContent();
-  showToast(` 已新增季別 ${name}（${styles.length} 款）`,'teal-t');
-}
+  // Drop any date-looking token (a lot/batch date embedded in the filename) before
+  // it can pollute the colorway or get mistaken for a numeric view code.
+  const rest = tokens.slice(restStart).filter(t => !looksLikeDateToken(t));
 
-// ══ Tab 切換 ══════════════════════════════════════════════
-function switchTab(tab){
-  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  document.getElementById('tab-btn-'+tab).classList.add('active');
-  if(tab==='progress'){renderSeasonTabs();renderSeasonContent();}
-}
-
-// ══ 款式比對（Tab 1）═══════════════════════════════════
-let seasonData=[],results=[],currentFilter='all',totalBT=0,coveredBT=0;
-const selectedStyles=new Set();
-const selectedBTs={}; // base → Set of selected BT names
-
-document.getElementById('file-season').addEventListener('change',function(){
-  if(!this.files[0])return;
-  document.getElementById('fname-season').textContent=this.files[0].name;
-  document.getElementById('box-season').classList.add('done');
-  readExcel(this.files[0],rows=>{
-    seasonData=rows;const hdrs=getHeaders(rows);
-    fillSel(document.getElementById('s-style'),hdrs,/style|款式|編號|item/i,false);
-    fillSel(document.getElementById('s-season'),hdrs,/^season$|季節|季別/i,true);
-    fillSel(document.getElementById('s-bt-count'),hdrs,/body.*type.*qty|body.*type.*\(qty|bt.*qty/i,true);
-    fillSel(document.getElementById('s-bt-types'),hdrs,/^body\s*type$|^body_type$/i,true);
-    document.getElementById('col-setup-area').style.display='block';
-    document.getElementById('btn-compare').disabled=false;
-  });
-});
-
-
-document.getElementById('btn-compare').addEventListener('click',runCompare);
-function runCompare(){
-  const sStyleCol=parseInt(document.getElementById('s-style').value);
-  const sSeasonVal=document.getElementById('s-season').value;
-  const sBTCountVal=document.getElementById('s-bt-count').value;
-  const sBTTypesVal=document.getElementById('s-bt-types').value;
-  const hasBTTypes=!!sBTTypesVal;
-  results=[];const seen=new Set();
-  seasonData.slice(1).forEach(row=>{
-    const rawVal=String(row[sStyleCol]||'').trim();if(!rawVal)return;
-    const base=baseStyle(rawVal);if(!base||!isValidStyleNum(base))return;
-    if(seen.has(base))return;seen.add(base);
-    const season=sSeasonVal?String(row[parseInt(sSeasonVal)]||'').trim():'';
-    let btCount=1;if(sBTCountVal){const n=parseInt(row[parseInt(sBTCountVal)]);if(!isNaN(n)&&n>0)btCount=n;}
-    let btTypes=[];if(hasBTTypes)btTypes=parseBTTypes(row[parseInt(sBTTypesVal)]);
-    const btTypesKnown=btTypes.length>0;
-    const hist=historyMap[base];const isDup=!!hist;
-    const histBT=hist?hist.bt:[];const histSeasons=hist?hist.s:[];
-    let coveredTypes=[],newTypes=[];
-    if(btTypesKnown){coveredTypes=btTypes.filter(b=>histBT.some(h=>btMatch(b,h)));newTypes=btTypes.filter(b=>!histBT.some(h=>btMatch(b,h)));}
-    else{const estCov=isDup?Math.min(histBT.length,btCount):0;coveredTypes=Array(estCov).fill('~');newTypes=Array(Math.max(0,btCount-estCov)).fill('~');}
-    results.push({raw:rawVal,base,season,btCount,btTypes,btTypesKnown,isDup,histBT,histSeasons,coveredTypes,newTypes});
-  });
-  totalBT=results.reduce((s,r)=>s+r.btCount,0);
-  coveredBT=results.reduce((s,r)=>s+r.coveredTypes.length,0);
-  document.getElementById('cnt-total').textContent=results.length;
-  document.getElementById('cnt-bt-total').textContent=totalBT;
-  document.getElementById('cnt-new').textContent=results.filter(r=>!r.isDup).length;
-  document.getElementById('cnt-dup').textContent=results.filter(r=>r.isDup).length;
-  selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);
-  document.getElementById('result-area').style.display='block';
-  updateCalc();setFilter('all');
-  // 自動偵測季別名稱
-  const detectedSeason = results.find(r=>r.season)?.season?.replace(/[^A-Z0-9]/gi,'').toUpperCase() || '';
-  document.getElementById('comp-name-input').value = detectedSeason;
-  document.getElementById('comp-save-bar').classList.add('show');
-  currentCompSeason = null;  // 新比對尚未儲存
-  renderCompTabs();
-  document.getElementById('result-area').scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function saveCurrentTargetPct(){
-  if(!currentCompSeason) return;
-  const s = compSessions[currentCompSeason];
-  if(s){ s.targetPct = parseFloat(document.getElementById('target-pct').value)||80; saveCompSessions(); }
-}
-
-function updateCalc(){
-  if(!results.length)return;
-  const pct=Math.min(100,Math.max(1,parseFloat(document.getElementById('target-pct').value)||80));
-  const need=Math.ceil(totalBT*pct/100);const gap=Math.max(0,need-coveredBT);
-  const curPct=totalBT?(coveredBT/totalBT*100):0;
-  const selBT=results.filter(r=>selectedStyles.has(r.base)).reduce((s,r)=>s+(selectedBTs[r.base]?.size||0),0);
-  const selPct=totalBT?(selBT/totalBT*100):0;
-  document.getElementById('calc-need').textContent=need;document.getElementById('calc-covered').textContent=coveredBT;document.getElementById('calc-gap').textContent=gap;document.getElementById('calc-sel').textContent=selBT||'—';
-  const covW=Math.min(curPct,pct);const selExtra=Math.min(selPct,Math.max(0,pct-curPct));const tgtGap=Math.max(0,pct-curPct-selExtra);
-  document.getElementById('bar-cov').style.width=covW+'%';document.getElementById('bar-sel').style.width=selExtra+'%';document.getElementById('bar-tgt').style.width=tgtGap+'%';
-  document.getElementById('bar-cov-lbl').textContent=`歷史涵蓋 ${curPct.toFixed(1)}%`;document.getElementById('bar-tgt-lbl').textContent=`目標 ${pct}%`;document.getElementById('bar-sel-lbl').textContent=selectedStyles.size?`已選 ${selPct.toFixed(1)}%`:'';
-  const note=document.getElementById('calc-note');
-  if(gap===0){note.className='calc-note ok';note.textContent=` 歷史 C/O 款已足夠達成 ${pct}% 目標。`;}
-  else{note.className='calc-note warn';note.textContent=` 歷史涵蓋 ${coveredBT} 個 Body Type（${curPct.toFixed(1)}%），還需再製作 ${gap} 個 Body Type 才能達成 ${pct}% 目標。`;}
-}
-
-function initSelectedBTs(r){
-  const btSet=new Set(r.btTypesKnown?r.btTypes:r.btCount===1?['REG']:[]);
-  selectedBTs[r.base]=btSet;
-}
-function toggleStyle(base,checked){
-  const r=results.find(x=>x.base===base);
-  if(checked){selectedStyles.add(base);if(r)initSelectedBTs(r);}
-  else{selectedStyles.delete(base);delete selectedBTs[base];}
-  updateSelBar();updateCalc();renderTable();
-  if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);
-}
-function toggleBT(base,bt){
-  if(!selectedStyles.has(base))return;
-  if(!selectedBTs[base])selectedBTs[base]=new Set();
-  if(selectedBTs[base].has(bt))selectedBTs[base].delete(bt);
-  else selectedBTs[base].add(bt);
-  if(selectedBTs[base].size===0){selectedStyles.delete(base);delete selectedBTs[base];}
-  updateSelBar();updateCalc();renderTable();
-  if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);
-}
-function toggleAll(checked){
-  getFiltered().forEach(r=>{
-    if(checked){selectedStyles.add(r.base);initSelectedBTs(r);}
-    else{selectedStyles.delete(r.base);delete selectedBTs[r.base];}
-  });
-  renderTable();updateSelBar();updateCalc();
-  if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);
-}
-function clearSelection(){selectedStyles.clear();Object.keys(selectedBTs).forEach(k=>delete selectedBTs[k]);document.getElementById('cb-all').checked=false;renderTable();updateSelBar();updateCalc();if(currentCompSeason) syncSelectionsToProgress(currentCompSeason);}
-
-// ── 從選款建立進度追蹤 ────────────────────────────────────
-function showCreateSeasonModal(){
-  const selRows=results.filter(r=>selectedStyles.has(r.base));
-  if(!selRows.length){alert('請先在表格中勾選要製作的款式');return;}
-  const selBT=selRows.reduce((s,r)=>s+r.btCount,0);
-  document.getElementById('modal-sel-count').textContent=selRows.length;
-  document.getElementById('modal-sel-bt').textContent=selBT;
-  // Pre-fill total BT with current season total if available
-  document.getElementById('modal-total-bt').value=totalBT||'';
-  // Try to guess season name from first result's season field
-  const guessedSeason=selRows[0]?.season||'';
-  document.getElementById('modal-season-name').value=guessedSeason;
-  const modal=document.getElementById('create-season-modal');
-  modal.style.display='flex';
-  setTimeout(()=>document.getElementById('modal-season-name').focus(),100);
-}
-
-function hideCreateSeasonModal(){
-  document.getElementById('create-season-modal').style.display='none';
-}
-
-function confirmCreateSeason(){
-  const name=document.getElementById('modal-season-name').value.trim().toUpperCase();
-  if(!name){alert('請輸入季別名稱');return;}
-  if(allSeasons[name]){if(!confirm(`${name} 已存在，確定要覆蓋？`))return;}
-  const inputBT=parseInt(document.getElementById('modal-total-bt').value);
-  const useTotalBT=(!isNaN(inputBT)&&inputBT>0)?inputBT:totalBT;
-
-  // Build styles from selected comparison results (using per-BT selection)
-  const styles=results.filter(r=>selectedStyles.has(r.base)).map(r=>{
-    const selBTArr=selectedBTs[r.base]?[...selectedBTs[r.base]]:(r.btTypesKnown?r.btTypes:(r.histBT.length?r.histBT:['REG']));
-    return{base:r.base,bt:selBTArr,btCount:selBTArr.length||r.btCount};
-  });
-
-  allSeasons[name]={name,totalBT:useTotalBT,styles,progress:{}};
-  styles.forEach(s=>{allSeasons[name].progress[s.base]={ordered:false,done:false,note:''};});
-  saveAllSeasons();
-  hideCreateSeasonModal();
-  currentSeasonKey=name;
-  switchTab('progress');
-  showToast(` 已建立 ${name} 進度追蹤（${styles.length} 款）`,'teal-t');
-}
-
-// Close modal on backdrop click
-document.addEventListener('click',function(e){
-  const modal=document.getElementById('create-season-modal');
-  if(e.target===modal) hideCreateSeasonModal();
-});
-function updateSelBar(){
-  const selRows=results.filter(r=>selectedStyles.has(r.base));
-  const selCount=selRows.length;
-  const selBT=selRows.reduce((s,r)=>s+(selectedBTs[r.base]?.size||0),0);
-  const selPct=totalBT?(selBT/totalBT*100).toFixed(1):0;
-  const bar=document.getElementById('sel-bar');
-  bar.classList.toggle('active',selCount>0);
-  document.getElementById('sel-count').textContent=selCount;
-  document.getElementById('sel-bt-count').textContent=selBT;
-  document.getElementById('sel-pct-badge').textContent=`佔本季 ${selPct}%`;
-  // 常駐匯出按鈕
-  const btnSel=document.getElementById('btn-export-sel');
-  if(btnSel) btnSel.style.display=selCount>0?'':'none';
-}
-
-function setFilter(f){currentFilter=f;['all','new','dup'].forEach(id=>document.getElementById('f-'+id).className='fbtn'+(f===id?` active-${id}`:''));renderTable();}
-function getFiltered(){const q=document.getElementById('search').value.trim().toUpperCase();let rows=results;if(currentFilter==='new')rows=rows.filter(r=>!r.isDup);if(currentFilter==='dup')rows=rows.filter(r=>r.isDup);if(q)rows=rows.filter(r=>r.base.includes(q)||r.raw.toUpperCase().includes(q)||r.season.toUpperCase().includes(q));return rows;}
-
-function renderBTTags(r){
-  const isSel=selectedStyles.has(r.base);
-  const selBTSet=selectedBTs[r.base]||new Set();
-  if(r.btTypesKnown){
-    return r.btTypes.map(t=>{
-      const isCov=r.coveredTypes.some(c=>btMatch(c,t));
-      if(isSel){
-        const active=selBTSet.has(t);
-        const cls=active?(isCov?'bt-sel-cov':'bt-sel-new'):'bt-desel';
-        const hint=active?(isCov?'已做過，可省工':'需製作'):'已排除（點擊重新加入）';
-        return`<span class="bt-tag ${cls}" onclick="toggleBT('${esc(r.base)}','${esc(t)}')" title="${hint}">${esc(t)}</span>`;
-      }
-      return`<span class="bt-tag ${isCov?'bt-cov':'bt-new'}">${esc(t)}</span>`;
-    }).join('');
+  // View is "best-effort": when it can't be determined we no longer fail the whole
+  // file — style / colorway / sample type are still usable, and the UI offers a
+  // per-row view dropdown as a manual fallback instead of forcing the entire
+  // filename to be retyped by hand.
+  let view = null;
+  let colorTokensRaw = rest;
+  if (rest.length > 0) {
+    const lastToken = rest[rest.length - 1];
+    if (/^\d+$/.test(lastToken)) {
+      view = lastToken;
+      colorTokensRaw = rest.slice(0, -1);
+    } else if (VIEW_TEXT_MAP[lastToken.toLowerCase()]) {
+      view = VIEW_TEXT_MAP[lastToken.toLowerCase()];
+      const secondLast = rest.length >= 2 ? rest[rest.length - 2].toLowerCase() : '';
+      colorTokensRaw = (secondLast === 'right' || secondLast === 'left') ? rest.slice(0, -2) : rest.slice(0, -1);
+    }
   }
-  if(r.btCount===1){
-    const isCov=r.isDup&&r.histBT.some(h=>btMatch('REG',h));
-    const cls=isSel?(selBTSet.has('REG')?(isCov?'bt-sel-cov':'bt-sel-new'):'bt-desel'):(isCov?'bt-cov':'bt-new');
-    const click=isSel?`onclick="toggleBT('${esc(r.base)}','REG')" `:'';
-    return`<span class="bt-tag ${cls}" ${click}>REG</span>`;
-  }
-  return`<span class="bt-tag bt-unk">×${r.btCount} Body Type（種類未知）</span>`;
-}
-function renderTable(){
-  const rows=getFiltered();const tbody=document.getElementById('tbody');
-  if(!rows.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">沒有符合條件的款式</td></tr>';document.getElementById('cb-all').checked=false;return;}
-  document.getElementById('cb-all').checked=rows.every(r=>selectedStyles.has(r.base))&&rows.length>0;
-  tbody.innerHTML=rows.map((r,i)=>{
-    const checked=selectedStyles.has(r.base);
-    const histBTDisplay=deduplicateBT(r.histBT).map(t=>`<span class="bt-tag bt-hist">${esc(t)}</span>`).join('');
-    return`<tr class="${checked?'selected-row':''}">
-      <td class="cb-col"><input type="checkbox" class="row-cb" ${checked?'checked':''} onchange="toggleStyle('${esc(r.base)}',this.checked)"></td>
-      <td style="color:var(--text3);font-size:11px">${i+1}</td>
-      <td class="style-no">${esc(r.raw)}</td>
-      <td style="color:var(--text2);font-size:12px">${esc(r.season)||dim('—')}</td>
-      <td>${r.isDup?'<span class="badge badge-dup">C/O</span>':'<span class="badge badge-new">未做過</span>'}</td>
-      <td>${renderBTTags(r)}</td>
-      <td>${histBTDisplay||dim('—')}</td>
-      <td style="color:var(--text2);font-size:11px">${r.histSeasons.join(', ')||dim('—')}</td>
-    </tr>`;
-  }).join('');
-}
 
-function buildExportData(rows, label){
-  const pct = parseFloat(document.getElementById('target-pct').value) || 80;
-  const need = Math.ceil(totalBT * pct / 100);
-
-  // 季別
-  const seasonName = currentCompSeason || rows.find(r => r.season)?.season || '';
-
-  // 已選 Body Type 數：永遠從 results 的實際已選計算（不依賴 export 範圍）
-  const selBTCount = results
-    .filter(r => selectedStyles.has(r.base))
-    .reduce((s, r) => {
-      const sel = selectedBTs[r.base];
-      return s + (sel ? sel.size : r.btCount);
-    }, 0);
-
-  // 資料列每行使用「實際選用的 BT」
-  const makeRow = r => {
-    const hist = historyMap[r.base];
-    const histBT = hist ? hist.bt : [];
-    const isDup = !!hist;
-    // 實際選用 BT（考慮 per-BT 排除）
-    const selSet = selectedBTs[r.base];
-    const activeBTs = r.btTypesKnown
-      ? (selSet ? r.btTypes.filter(b => selSet.has(b)) : r.btTypes)
-      : null;
-    const activeBTCount = activeBTs ? activeBTs.length : (selSet ? selSet.size : r.btCount);
-    const btTypes = activeBTs ? activeBTs.join(' + ') : (r.btCount > 1 ? '—' : 'REG');
-    return { isDup, data: [r.raw, isDup ? 'C/O' : '未做過', activeBTCount, btTypes, histBT.length ? deduplicateBT(histBT).join(' + ') : '—'] };
+  return {
+    style, sampleType, version, view, colorTokensRaw,
+    groupKey: colorTokensRaw.length > 0 ? colorTokensRaw.join('_') : '(無配色標記)'
   };
-
-  const made = rows.map(makeRow);
-  const notDone = made.filter(r => !r.isDup).map(r => r.data);
-  const co      = made.filter(r =>  r.isDup).map(r => r.data);
-
-  const summary = [
-    seasonName ? `季別：${seasonName}　　` : '',
-    `本季總 Body Type：${totalBT}　　`,
-    `目標 ${pct}% → 需完成 Body Type：${need}　　`,
-    `已選 Body Type：${selBTCount}　　`,
-    `歷史已涵蓋：${coveredBT}`
-  ].join('');
-
-  return [
-    [summary, '', '', '', ''],
-    ['', '', '', '', ''],
-    ['款號', '狀態', 'Body Type 數量', 'Body Type 種類', '歷史已做 Body Type'],
-    ...notDone,
-    ...co
-  ];
 }
 
-function applyExportFormat(ws) {
-  ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:4}}];  // 摘要列合併 A-E
-  ws['!cols'] = [{wch:24},{wch:10},{wch:14},{wch:32},{wch:32}];
+function getEffectiveView(item) {
+  if (item.viewOverride !== null && item.viewOverride !== undefined) return item.viewOverride;
+  if (item.parsed && item.parsed.view !== null) return item.parsed.view;
+  return '000';
 }
 
-function exportAll(){
-  const rows = getFiltered();
-  const data = buildExportData(rows, `全部（${rows.length}款）`);
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  applyExportFormat(ws);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '比對結果');
-  XLSX.writeFile(wb, '3D_final_sample_比對結果.xlsx');
+function viewIsUnconfirmed(item) {
+  return !!item.parsed && item.parsed.view === null &&
+    (item.viewOverride === null || item.viewOverride === undefined) &&
+    item.customName === null;
 }
 
-function exportSelected(){
-  const rows = results.filter(r => selectedStyles.has(r.base));
-  if(!rows.length) return alert('尚未選取任何款式');
-  const data = buildExportData(rows, `已選（${rows.length}款）`);
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  applyExportFormat(ws);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '已選款式');
-  XLSX.writeFile(wb, '3D_final_sample_已選款式.xlsx');
+function computeCommonSuffixLen(tokenArrays) {
+  const nonEmpty = tokenArrays.filter(t => t.length > 0);
+  if (nonEmpty.length <= 1) return 0;
+  const minLen = Math.min(...nonEmpty.map(t => t.length));
+  let suffixLen = 0;
+  for (let i = 1; i <= minLen; i++) {
+    const vals = nonEmpty.map(t => t[t.length - i].toLowerCase());
+    if (vals.every(v => v === vals[0])) suffixLen = i;
+    else break;
+  }
+  const maxSafe = Math.min(...nonEmpty.map(t => Math.max(t.length - 1, 0)));
+  return Math.min(suffixLen, maxSafe);
 }
 
-// ── 防止瀏覽器預設開啟拖曳檔案 ─────────────────────────────
-// Prevent browser from opening dragged files
-document.addEventListener('dragover', e => e.preventDefault());
-document.addEventListener('drop', e => e.preventDefault());
+function splitStyleSizeType(rawStyle) {
+  // Style codes commonly end in 3 digits + a single size-type letter (R/X/P/G/K/D/H/E)
+  // with no separating dash in the source export, e.g. "WX5FA512R". Split that into a
+  // base style and a size-type code when the trailing letter is one of the known
+  // codes; otherwise default the size type to 'r' (Regular) and leave it editable.
+  const match = rawStyle.match(/^(.*\d{3})([A-Za-z])$/);
+  if (match && SIZE_TYPE_CODES.includes(match[2].toLowerCase())) {
+    return { base: match[1].toUpperCase(), sizeType: match[2].toLowerCase() };
+  }
+  return { base: rawStyle.toUpperCase(), sizeType: 'r' };
+}
 
-// Handle file drop on upload zone
-function handleFileDrop(e, type) {
-  e.preventDefault(); e.stopPropagation();
-  const box = document.getElementById('box-' + type);
-  if(box) box.classList.remove('drag-over');
-  const file = e.dataTransfer?.files?.[0];
-  if(!file) return;
-  if(type === 'season') {
-    document.getElementById('fname-season').textContent = file.name;
-    document.getElementById('box-season').classList.add('done');
-    readExcel(file, rows => {
-      seasonData = rows;
-      const hdrs = getHeaders(rows);
-      fillSel(document.getElementById('s-style'), hdrs, /style|款號|編號|item/i, false);
-      fillSel(document.getElementById('s-season'), hdrs, /^season$|季節|季別/i, true);
-      fillSel(document.getElementById('s-bt-count'), hdrs, /body.*type.*qty|body.*type.*\(qty\)|bt.*qty/i, true);
-      fillSel(document.getElementById('s-bt-types'), hdrs, /^body\s*type$|^body_type$/i, true);
-      document.getElementById('col-setup-area').style.display = 'block';
-      document.getElementById('btn-compare').disabled = false;
-    }, 'upload-loading');
+function reparseAndGroup(preserveEdits) {
+  files.forEach(item => { item.parsed = parseSourceFilename(item.file.name); });
+  const parsedItems = files.filter(f => f.parsed);
+
+  const uniqueStyles = {};
+  parsedItems.forEach(f => { uniqueStyles[f.parsed.style] = true; });
+  const newStyleGroups = {};
+  const newSizeTypeGroups = {};
+  Object.keys(uniqueStyles).forEach(key => {
+    const split = splitStyleSizeType(key);
+    newStyleGroups[key] = (preserveEdits && styleGroups[key] !== undefined) ? styleGroups[key] : split.base;
+    newSizeTypeGroups[key] = (preserveEdits && sizeTypeGroups[key] !== undefined) ? sizeTypeGroups[key] : split.sizeType;
+  });
+  styleGroups = newStyleGroups;
+  sizeTypeGroups = newSizeTypeGroups;
+
+  const uniqueColorTokenArrays = {};
+  parsedItems.forEach(f => { uniqueColorTokenArrays[f.parsed.groupKey] = f.parsed.colorTokensRaw; });
+  const suffixLen = computeCommonSuffixLen(Object.values(uniqueColorTokenArrays));
+  const newColorGroups = {};
+  Object.keys(uniqueColorTokenArrays).forEach(key => {
+    const tokens = uniqueColorTokenArrays[key];
+    const trimmed = suffixLen > 0 ? tokens.slice(0, tokens.length - suffixLen) : tokens;
+    const defaultVal = (trimmed.length > 0 ? trimmed : tokens).join(' ').toLowerCase();
+    // When a group has no real colorway tokens at all (key is the "(無配色標記)"
+    // placeholder), default the editable value to blank rather than echoing that
+    // Chinese placeholder — it's only meant as a label in the raw-key column, never
+    // as text that ends up inside a client-facing filename.
+    newColorGroups[key] = (preserveEdits && colorGroups[key] !== undefined) ? colorGroups[key] : defaultVal;
+  });
+  colorGroups = newColorGroups;
+}
+
+function addFiles(fileListObj) {
+  Array.from(fileListObj).forEach(file => {
+    if (!isImageFile(file)) return;
+    files.push({
+      id: 'f' + Date.now() + Math.random().toString(36).slice(2),
+      file: file,
+      thumbUrl: URL.createObjectURL(file),
+      customName: null,
+      viewOverride: null,
+      parsed: null
+    });
+  });
+  reparseAndGroup(true);
+  render();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function sanitize(name) {
+  return name.replace(/[\\/:*?"<>|]/g, '_');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function currentMode() {
+  return document.querySelector('.mode-tab.active').dataset.mode;
+}
+
+function computeNewName(item, index) {
+  if (item.customName !== null) return item.customName;
+  const { base, ext } = splitExt(item.file.name);
+  const mode = currentMode();
+
+  if (mode === 'auto') {
+    if (!item.parsed) return sanitize(item.file.name);
+    const p = item.parsed;
+    const split = splitStyleSizeType(p.style);
+    const style = styleGroups[p.style] !== undefined ? styleGroups[p.style] : split.base;
+    const sizeType = (sizeTypeGroups[p.style] !== undefined ? sizeTypeGroups[p.style] : split.sizeType).toLowerCase();
+    const colorwayFallback = p.colorTokensRaw.length > 0 ? p.colorTokensRaw.join(' ').toLowerCase() : '';
+    const colorway = colorGroups[p.groupKey] !== undefined ? colorGroups[p.groupKey] : colorwayFallback;
+    const sampleType = p.sampleType !== null ? p.sampleType : document.getElementById('fallbackSampleType').value;
+    const versionRaw = p.version !== null ? p.version : document.getElementById('fallbackVersion').value.trim();
+    const version = versionRaw === '' ? '1' : versionRaw;
+    const view = getEffectiveView(item);
+    const needsColorway = (sampleType === 'col' || sampleType === 'fin');
+    const segments = [style, sizeType];
+    if (needsColorway && colorway) segments.push(colorway);
+    segments.push(sampleType, 'v' + version, view);
+    let name = segments.join('-');
+    if (ext) name += '.' + ext;
+    return sanitize(name);
+  } else if (mode === 'template') {
+    const template = document.getElementById('templateInput').value || '{original}';
+    const startRaw = parseInt(document.getElementById('startNum').value, 10);
+    const stepRaw = parseInt(document.getElementById('stepNum').value, 10);
+    const paddingRaw = parseInt(document.getElementById('paddingNum').value, 10);
+    const start = isNaN(startRaw) ? 1 : startRaw;
+    const step = isNaN(stepRaw) ? 1 : stepRaw;
+    const padding = isNaN(paddingRaw) ? 3 : paddingRaw;
+    const num = start + index * step;
+    const paddedNum = String(Math.max(num, 0)).padStart(padding, '0');
+
+    let name = template.split('{original}').join(base).split('{n}').join(paddedNum).split('{ext}').join(ext);
+    if (ext && !name.toLowerCase().endsWith('.' + ext.toLowerCase())) {
+      name += '.' + ext;
+    }
+    return sanitize(name);
+  } else {
+    const find = document.getElementById('findInput').value;
+    const replace = document.getElementById('replaceInput').value;
+    const useRegex = document.getElementById('regexCheck').checked;
+    let newBase = base;
+    if (find) {
+      try {
+        newBase = useRegex ? base.replace(new RegExp(find, 'g'), replace) : base.split(find).join(replace);
+      } catch (e) { /* invalid regex pattern — keep original base */ }
+    }
+    return sanitize(newBase + (ext ? '.' + ext : ''));
   }
 }
 
-// ══ 初始化 ═══════════════════════════════════════════════
-// Highlight upload box when dragging anywhere on page
-document.addEventListener('dragenter', () => {
-  const box = document.getElementById('box-season');
-  const tab = document.getElementById('tab-compare');
-  if(box && tab && tab.classList.contains('active')) box.classList.add('drag-over');
+function computeZipFilename(mode) {
+  if (mode === 'auto') {
+    const firstParsed = files.find(f => f.parsed);
+    if (firstParsed) {
+      const p = firstParsed.parsed;
+      const split = splitStyleSizeType(p.style);
+      const style = styleGroups[p.style] !== undefined ? styleGroups[p.style] : split.base;
+      const sizeType = (sizeTypeGroups[p.style] !== undefined ? sizeTypeGroups[p.style] : split.sizeType).toLowerCase();
+      const sampleType = p.sampleType !== null ? p.sampleType : document.getElementById('fallbackSampleType').value;
+      const versionRaw = p.version !== null ? p.version : document.getElementById('fallbackVersion').value.trim();
+      const version = versionRaw === '' ? '1' : versionRaw;
+      return sanitize(`${style}${sizeType.toUpperCase()}-${sampleType}-v${version}.zip`);
+    }
+  }
+  return 'renamed_images.zip';
+}
+
+function styleGroupRowHtml(key) {
+  const sampleFile = files.find(f => f.parsed && f.parsed.style === key);
+  const thumbHtml = sampleFile
+    ? `<div class="thumb-wrap"><img class="thumb" src="${sampleFile.thumbUrl}" alt=""></div>`
+    : `<div class="thumb-wrap"><div class="thumb"></div></div>`;
+  const defaultSplit = splitStyleSizeType(key);
+  const baseVal = styleGroups[key] !== undefined ? styleGroups[key] : defaultSplit.base;
+  const sizeTypeVal = sizeTypeGroups[key] !== undefined ? sizeTypeGroups[key] : defaultSplit.sizeType;
+  const options = SIZE_TYPES.map(st =>
+    `<option value="${st.code}" ${st.code === sizeTypeVal ? 'selected' : ''}>${escapeHtml(st.label)}</option>`
+  ).join('');
+  return `
+    <div class="group-row">
+      ${thumbHtml}
+      <div class="group-raw">${escapeHtml(key)}</div>
+      <span class="group-arrow">→</span>
+      <input type="text" class="group-value-input style-base-input" data-group-type="style" data-group-key="${escapeHtml(key)}" value="${escapeHtml(baseVal)}">
+      <select class="size-type-select" data-size-type-key="${escapeHtml(key)}">${options}</select>
+    </div>
+  `;
+}
+
+function colorGroupRowHtml(key, value) {
+  const sampleFile = files.find(f => f.parsed && f.parsed.groupKey === key);
+  const thumbHtml = sampleFile
+    ? `<div class="thumb-wrap"><img class="thumb" src="${sampleFile.thumbUrl}" alt=""></div>`
+    : `<div class="thumb-wrap"><div class="thumb"></div></div>`;
+  return `
+    <div class="group-row">
+      ${thumbHtml}
+      <div class="group-raw">${escapeHtml(key)}</div>
+      <span class="group-arrow">→</span>
+      <input type="text" class="group-value-input" data-group-type="color" data-group-key="${escapeHtml(key)}" value="${escapeHtml(value)}">
+    </div>
+  `;
+}
+
+function renderDetectedGroups() {
+  const wrap = document.getElementById('detectedGroupsWrap');
+  const styleKeys = Object.keys(styleGroups);
+  const colorKeys = Object.keys(colorGroups);
+  const unparsedCount = files.filter(f => !f.parsed).length;
+  const unconfirmedViewCount = files.filter(viewIsUnconfirmed).length;
+
+  if (styleKeys.length === 0 && colorKeys.length === 0) {
+    wrap.innerHTML = files.length === 0
+      ? ''
+      : '<div class="hint" style="margin:0;">上傳的檔名皆無法自動判別，請改用其他分頁手動設定，或在下方表格逐一輸入新檔名</div>';
+    return;
+  }
+
+  let html = '';
+  if (styleKeys.length > 0) {
+    html += '<div class="group-section-label">款號 Style ＋ Size Type</div>';
+    html += styleKeys.map(key => styleGroupRowHtml(key)).join('');
+  }
+  if (colorKeys.length > 0) {
+    html += '<div class="group-section-label" style="margin-top:16px;">配色 Colorway<span style="text-transform:none;font-weight:400;letter-spacing:normal;"> （僅 col／fin 樣品類型會顯示在檔名中）</span></div>';
+    html += colorKeys.map(key => colorGroupRowHtml(key, colorGroups[key])).join('');
+  }
+  if (unparsedCount > 0) {
+    html += `<div class="hint warn-text" style="margin-bottom:0;">⚠ 有 ${unparsedCount} 個檔案無法自動判別，已在下方表格標示，請手動輸入新檔名</div>`;
+  }
+  if (unconfirmedViewCount > 0) {
+    html += `<div class="hint warn-text" style="margin-bottom:0;">⚠ 有 ${unconfirmedViewCount} 個檔案無法自動判別視角，請於下方表格「視角」欄位手動選擇</div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+document.getElementById('detectedGroupsWrap').addEventListener('input', e => {
+  if (e.target.classList.contains('group-value-input')) {
+    const type = e.target.dataset.groupType;
+    const key = e.target.dataset.groupKey;
+    if (type === 'style') styleGroups[key] = e.target.value;
+    else colorGroups[key] = e.target.value;
+    render();
+  }
 });
-document.addEventListener('dragleave', e => {
-  if(!e.relatedTarget || e.relatedTarget === document.documentElement) {
-    const box = document.getElementById('box-season');
-    if(box) box.classList.remove('drag-over');
+document.getElementById('detectedGroupsWrap').addEventListener('change', e => {
+  if (e.target.classList.contains('size-type-select')) {
+    sizeTypeGroups[e.target.dataset.sizeTypeKey] = e.target.value;
+    render();
   }
 });
 
-loadAllSeasons();
-rebuildHistoryFromSeasons();
-loadCompSessions();
-renderCompTabs();
+function viewOptionHtml(item) {
+  const effective = getEffectiveView(item);
+  const opts = [['000', '000 正面'], ['180', '180 背面'], ['270', '270 側面']];
+  return opts.map(([v, label]) =>
+    `<option value="${v}" ${v === effective ? 'selected' : ''}>${label}</option>`
+  ).join('');
+}
+
+function render() {
+  const emptyState = document.getElementById('emptyState');
+  const table = document.getElementById('fileTable');
+  const tbody = document.getElementById('fileTableBody');
+  const mode = currentMode();
+
+  table.classList.toggle('mode-auto', mode === 'auto');
+  if (mode === 'auto') renderDetectedGroups();
+
+  if (files.length === 0) {
+    emptyState.style.display = 'block';
+    table.style.display = 'none';
+    updateStats();
+    return;
+  }
+  emptyState.style.display = 'none';
+  table.style.display = 'table';
+
+  const newNames = files.map((item, idx) => computeNewName(item, idx));
+  const counts = {};
+  newNames.forEach(n => { const k = n.toLowerCase(); counts[k] = (counts[k] || 0) + 1; });
+
+  tbody.innerHTML = files.map((item, idx) => {
+    const newName = newNames[idx];
+    const isDup = counts[newName.toLowerCase()] > 1;
+    const isUnparsed = mode === 'auto' && !item.parsed && item.customName === null;
+    const needsViewConfirm = mode === 'auto' && viewIsUnconfirmed(item);
+    const rowClass = isUnparsed ? 'unparsed' : (needsViewConfirm ? 'unparsed' : (isDup ? 'duplicate' : ''));
+    let statusHtml = '<span class="status-ok">✓</span>';
+    if (isUnparsed) statusHtml = '<span class="status-warn">⚠ 需手動確認</span>';
+    else if (needsViewConfirm) statusHtml = '<span class="status-warn">⚠ 請確認視角</span>';
+    else if (isDup) statusHtml = '<span class="status-dup">⚠ 重複</span>';
+    return `
+      <tr class="${rowClass}">
+        <td><div class="thumb-wrap">
+          <img class="thumb" src="${item.thumbUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          <div class="thumb-fallback">🖼️</div>
+        </div></td>
+        <td class="idx-cell">${idx + 1}</td>
+        <td class="original-name">${escapeHtml(item.file.name)}</td>
+        <td><input type="text" class="new-name-input" data-id="${item.id}" value="${escapeHtml(newName)}"></td>
+        <td class="view-col"><select class="view-select" data-id="${item.id}">${viewOptionHtml(item)}</select></td>
+        <td>${statusHtml}</td>
+        <td class="row-actions">
+          <button data-action="up" data-id="${item.id}" title="上移">↑</button>
+          <button data-action="down" data-id="${item.id}" title="下移">↓</button>
+          <button data-action="remove" data-id="${item.id}" title="移除">✕</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('statCount').textContent = files.length;
+  const totalBytes = files.reduce((sum, item) => sum + item.file.size, 0);
+  document.getElementById('statSize').textContent = formatSize(totalBytes);
+  const zipPreview = document.getElementById('zipNamePreview');
+  zipPreview.textContent = files.length > 0 ? '壓縮檔：' + computeZipFilename(currentMode()) : '';
+}
+
+document.getElementById('fileTableBody').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+  const idx = files.findIndex(f => f.id === id);
+  if (idx === -1) return;
+
+  if (action === 'up' && idx > 0) {
+    [files[idx - 1], files[idx]] = [files[idx], files[idx - 1]];
+  } else if (action === 'down' && idx < files.length - 1) {
+    [files[idx + 1], files[idx]] = [files[idx], files[idx + 1]];
+  } else if (action === 'remove') {
+    URL.revokeObjectURL(files[idx].thumbUrl);
+    files.splice(idx, 1);
+    reparseAndGroup(true);
+  }
+  render();
+});
+
+document.getElementById('fileTableBody').addEventListener('change', e => {
+  if (e.target.classList.contains('new-name-input')) {
+    const id = e.target.dataset.id;
+    const item = files.find(f => f.id === id);
+    if (item) item.customName = e.target.value;
+  } else if (e.target.classList.contains('view-select')) {
+    const id = e.target.dataset.id;
+    const item = files.find(f => f.id === id);
+    if (item) {
+      item.viewOverride = e.target.value;
+      item.customName = null;
+      render();
+    }
+  }
+});
+
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const mode = tab.dataset.mode;
+    document.getElementById('autoPanel').classList.toggle('active', mode === 'auto');
+    document.getElementById('templatePanel').classList.toggle('active', mode === 'template');
+    document.getElementById('replacePanel').classList.toggle('active', mode === 'replace');
+    render();
+  });
+});
+
+['fallbackSampleType', 'fallbackVersion', 'templateInput', 'startNum', 'stepNum', 'paddingNum', 'findInput', 'replaceInput'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', render);
+  el.addEventListener('change', render);
+});
+document.getElementById('regexCheck').addEventListener('change', render);
+
+document.getElementById('sortBtn').addEventListener('click', () => {
+  files.sort((a, b) => a.file.name.localeCompare(b.file.name, undefined, { numeric: true }));
+  render();
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  files.forEach(item => { item.customName = null; item.viewOverride = null; });
+  reparseAndGroup(false);
+  render();
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  files.forEach(item => URL.revokeObjectURL(item.thumbUrl));
+  files = [];
+  styleGroups = {};
+  sizeTypeGroups = {};
+  colorGroups = {};
+  render();
+});
+
+document.getElementById('downloadBtn').addEventListener('click', async () => {
+  if (files.length === 0) { alert('請先上傳圖片'); return; }
+
+  const mode = currentMode();
+  if (mode === 'auto') {
+    const unparsedCount = files.filter(f => !f.parsed && f.customName === null).length;
+    const unconfirmedViewCount = files.filter(viewIsUnconfirmed).length;
+    if (unparsedCount > 0 || unconfirmedViewCount > 0) {
+      const parts = [];
+      if (unparsedCount > 0) parts.push(`${unparsedCount} 個檔案無法自動判別（將保留原始檔名）`);
+      if (unconfirmedViewCount > 0) parts.push(`${unconfirmedViewCount} 個檔案視角未確認（將套用預設視角 000）`);
+      const proceed = confirm(parts.join('；') + '。是否繼續下載？');
+      if (!proceed) return;
+    }
+  }
+
+  const newNames = files.map((item, idx) => computeNewName(item, idx));
+  const seen = new Set();
+  for (const n of newNames) {
+    const k = n.toLowerCase();
+    if (seen.has(k)) {
+      alert('偵測到重複的檔名：' + n + '\n請調整後再下載');
+      return;
+    }
+    seen.add(k);
+  }
+
+  const downloadBtn = document.getElementById('downloadBtn');
+  const progress = document.getElementById('progress');
+  downloadBtn.disabled = true;
+  progress.textContent = '打包中…';
+
+  try {
+    const zip = new JSZip();
+    files.forEach((item, idx) => { zip.file(newNames[idx], item.file); });
+
+    const content = await zip.generateAsync({ type: 'blob' }, metadata => {
+      progress.textContent = `打包中… ${metadata.percent.toFixed(0)}%`;
+    });
+
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = computeZipFilename(mode);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    progress.textContent = '完成！';
+    setTimeout(() => { progress.textContent = ''; }, 2500);
+  } catch (err) {
+    progress.textContent = '打包失敗：' + err.message;
+  } finally {
+    downloadBtn.disabled = false;
+  }
+});
+
+render();
 </script>
 </body>
 </html>
